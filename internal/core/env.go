@@ -47,6 +47,11 @@ func (e Env) Expand(target string) string {
 	return target
 }
 
+// StorePath is where an Entry's item lives in the Store.
+func (e Env) StorePath(en Entry) string {
+	return filepath.Join(e.Store, en.ID+"-"+filepath.Base(en.Target))
+}
+
 // Contract turns an absolute path into its ~ form. It reports false for a
 // path outside Home.
 func (e Env) Contract(path string) (string, bool) {
