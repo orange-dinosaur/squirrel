@@ -23,57 +23,61 @@ func newApplyCmd() *cobra.Command {
 			if backup && overwrite {
 				return errors.New("--backup and --overwrite cannot be used together")
 			}
-			env, err := core.LoadEnv()
-			if err != nil {
-				return err
-			}
-			m, err := core.Load(env.Store)
-			if err != nil {
-				return err
-			}
-			plan, err := core.PlanApply(env, m, tags)
-			if err != nil {
-				return err
-			}
-
-			resolve := map[string]core.Resolution{}
-			for _, c := range plan.Conflicts {
-				switch {
-				case backup:
-					resolve[c.Entry.ID] = core.Backup
-				case overwrite:
-					resolve[c.Entry.ID] = core.Overwrite
-				}
-			}
-			if len(plan.Conflicts) > 0 && !backup && !overwrite {
-				if !stdinIsTerminal() {
-					n := fmt.Sprintf("%d Conflicts need", len(plan.Conflicts))
-					if len(plan.Conflicts) == 1 {
-						n = "1 Conflict needs"
-					}
-					return fmt.Errorf("%s a decision: run apply in a terminal, or pass --backup or --overwrite", n)
-				}
-				for _, c := range plan.Conflicts {
-					r, err := askResolution(c)
-					if err != nil || r == quit {
-						fmt.Fprintln(cmd.OutOrStdout(), "quit, nothing changed")
-						return errQuiet
-					}
-					resolve[c.Entry.ID] = r
-				}
-			}
-
-			res := core.ExecuteApply(env, plan, resolve)
-			printApply(cmd.OutOrStdout(), env, plan, res, resolve)
-			if !res.OK() {
-				return errQuiet
-			}
-			return nil
+			return runApply(cmd.OutOrStdout(), tags, backup, overwrite)
 		},
 	}
 	cmd.Flags().BoolVar(&backup, "backup", false, "resolve every Conflict by renaming it to <target>.squirrel-backup")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "resolve every Conflict by deleting what is in the way")
 	return cmd
+}
+
+func runApply(w io.Writer, tags []string, backup, overwrite bool) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return err
+	}
+	plan, err := core.PlanApply(env, m, tags)
+	if err != nil {
+		return err
+	}
+
+	resolve := map[string]core.Resolution{}
+	for _, c := range plan.Conflicts {
+		switch {
+		case backup:
+			resolve[c.Entry.ID] = core.Backup
+		case overwrite:
+			resolve[c.Entry.ID] = core.Overwrite
+		}
+	}
+	if len(plan.Conflicts) > 0 && !backup && !overwrite {
+		if !stdinIsTerminal() {
+			n := fmt.Sprintf("%d Conflicts need", len(plan.Conflicts))
+			if len(plan.Conflicts) == 1 {
+				n = "1 Conflict needs"
+			}
+			return fmt.Errorf("%s a decision: run apply in a terminal, or pass --backup or --overwrite", n)
+		}
+		for _, c := range plan.Conflicts {
+			r, err := askResolution(c)
+			if err != nil || r == quit {
+				fmt.Fprintln(w, "quit, nothing changed")
+				return errQuiet
+			}
+			resolve[c.Entry.ID] = r
+		}
+	}
+
+	res := core.ExecuteApply(env, plan, resolve)
+	printApply(w, env, plan, res, resolve)
+	if !res.OK() {
+		return errQuiet
+	}
+	return nil
 }
 
 func askResolution(c core.Row) (core.Resolution, error) {

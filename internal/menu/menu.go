@@ -13,6 +13,7 @@ import (
 // Actions are the commands the menu runs. Each prints its own output.
 type Actions struct {
 	Add    func(path string, tags []string) error
+	Apply  func(tags []string) error
 	Status func() error
 	Tags   func() error
 }
@@ -46,6 +47,11 @@ func Run(a Actions) error {
 			var tags []string
 			if path, tags, err = askAdd(); err == nil {
 				err = a.Add(path, tags)
+			}
+		case apply:
+			var tags []string
+			if tags, err = askApply(); err == nil {
+				err = a.Apply(tags)
 			}
 		case status:
 			err = a.Status()

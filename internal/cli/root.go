@@ -38,6 +38,13 @@ func newRootCmd() *cobra.Command {
 			}
 			return menu.Run(menu.Actions{
 				Add: func(path string, tags []string) error { return runAdd(os.Stdout, path, tags) },
+				Apply: func(tags []string) error {
+					// Quit at a Conflict and a partial apply have already printed why.
+					if err := runApply(os.Stdout, tags, false, false); !errors.Is(err, errQuiet) {
+						return err
+					}
+					return nil
+				},
 				Status: func() error {
 					_, err := printStatus(os.Stdout, nil, false)
 					return err
