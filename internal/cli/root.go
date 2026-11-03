@@ -30,7 +30,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "squirrel",
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 	}
-	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd())
+	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd())
 	return root
 }
 
