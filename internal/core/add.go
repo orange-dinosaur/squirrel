@@ -42,6 +42,13 @@ func Add(env Env, m *Manifest, path string, tags []string) (Entry, error) {
 	return e, nil
 }
 
+// CheckAdd reports why Add would refuse path, or nil. Tags chosen later are
+// checked again by Add itself.
+func CheckAdd(env Env, m *Manifest, path string) error {
+	_, _, err := checkAdd(env, m, path, nil)
+	return err
+}
+
 // checkAdd applies every refusal and returns the new Entry and the absolute path.
 func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, error) {
 	abs, err := filepath.Abs(env.Expand(path))
@@ -73,6 +80,9 @@ func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, 
 		return Entry{}, "", fmt.Errorf("%s is already managed by Entry %s", target, id)
 	}
 	info, err := os.Lstat(abs)
+	if errors.Is(err, os.ErrNotExist) {
+		return Entry{}, "", fmt.Errorf("%s does not exist", path)
+	}
 	if err != nil {
 		return Entry{}, "", err
 	}

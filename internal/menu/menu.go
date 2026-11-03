@@ -12,6 +12,7 @@ import (
 
 // Actions are the commands the menu runs. Each prints its own output.
 type Actions struct {
+	Add    func(path string, tags []string) error
 	Status func() error
 	Tags   func() error
 }
@@ -29,7 +30,7 @@ const (
 )
 
 // Run shows the menu until Quit, Esc or Ctrl+C. An action's error is printed
-// and the menu comes back.
+// and the menu comes back. Esc inside an action's form also comes back.
 func Run(a Actions) error {
 	for {
 		choice, err := pick()
@@ -40,6 +41,12 @@ func Run(a Actions) error {
 			return err
 		}
 		switch choice {
+		case add:
+			var path string
+			var tags []string
+			if path, tags, err = askAdd(); err == nil {
+				err = a.Add(path, tags)
+			}
 		case status:
 			err = a.Status()
 		case listTags:
@@ -47,16 +54,21 @@ func Run(a Actions) error {
 		default:
 			fmt.Println("not yet available")
 		}
-		if err != nil {
+		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			fmt.Fprintln(os.Stderr, err)
 		}
 		fmt.Println()
 	}
 }
 
+// keys lets Esc leave a form, as well as Ctrl+C.
+func keys() *huh.KeyMap {
+	k := huh.NewDefaultKeyMap()
+	k.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
+	return k
+}
+
 func pick() (item, error) {
-	keys := huh.NewDefaultKeyMap()
-	keys.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
 	choice := add
 	err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[item]().
@@ -71,6 +83,6 @@ func pick() (item, error) {
 				huh.NewOption("Quit", quit),
 			).
 			Value(&choice),
-	)).WithKeyMap(keys).Run()
+	)).WithKeyMap(keys()).Run()
 	return choice, err
 }

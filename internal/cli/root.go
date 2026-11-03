@@ -37,6 +37,7 @@ func newRootCmd() *cobra.Command {
 				return cmd.Help()
 			}
 			return menu.Run(menu.Actions{
+				Add: func(path string, tags []string) error { return runAdd(os.Stdout, path, tags) },
 				Status: func() error {
 					_, err := printStatus(os.Stdout, nil, false)
 					return err

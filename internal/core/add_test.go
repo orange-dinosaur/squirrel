@@ -95,7 +95,7 @@ func TestAddRefusals(t *testing.T) {
 		{"~/.vimrc", "", "already managed by Entry 11111111"},
 		{"~/.config/nvim/init.lua", "", "managed by Entry 22222222"},
 		{"~/.zshrc", "Shell", "must use only"},
-		{"~/.missing", "", "no such file"},
+		{"~/.missing", "", "~/.missing does not exist"},
 	}
 	for _, c := range cases {
 		var tags []string

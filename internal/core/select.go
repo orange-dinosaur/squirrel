@@ -7,7 +7,8 @@ import (
 	"slices"
 )
 
-var osTags = []string{"macos", "linux"}
+// OSTags are the reserved Tags that limit an Entry to an OS.
+var OSTags = []string{"macos", "linux"}
 
 var tagName = regexp.MustCompile(`^[a-z0-9-]+$`)
 
@@ -21,7 +22,7 @@ func ValidTag(t string) bool {
 func (e Entry) AppliesOn(os string) bool {
 	hasOSTag := false
 	for _, t := range e.Tags {
-		if slices.Contains(osTags, t) {
+		if slices.Contains(OSTags, t) {
 			if t == os {
 				return true
 			}
@@ -70,7 +71,7 @@ func (m *Manifest) Clash(e Entry) (string, bool) {
 		if o.ID == e.ID || o.Removed || o.Target != e.Target {
 			continue
 		}
-		for _, os := range osTags {
+		for _, os := range OSTags {
 			if e.AppliesOn(os) && o.AppliesOn(os) {
 				return o.ID, true
 			}
