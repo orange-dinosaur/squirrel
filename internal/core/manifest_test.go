@@ -47,6 +47,10 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		t.Errorf("round trip = %+v, want %+v", got, want)
 	}
 
+	if info, _ := os.Stat(filepath.Join(store, manifestName)); info.Mode().Perm() != 0o644 {
+		t.Errorf("Manifest mode = %v, want 0644", info.Mode().Perm())
+	}
+
 	files, _ := os.ReadDir(store)
 	if len(files) != 1 {
 		t.Errorf("Store holds %d files after Save, want only the Manifest", len(files))

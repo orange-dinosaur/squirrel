@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 
@@ -21,10 +22,12 @@ func checkOS(goos string) error {
 }
 
 func newRootCmd() *cobra.Command {
-	return &cobra.Command{
+	root := &cobra.Command{
 		Use:   "squirrel",
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 	}
+	root.AddCommand(newAddCmd())
+	return root
 }
 
 // Execute runs the squirrel command line. Errors are already printed when it returns.
@@ -33,5 +36,12 @@ func Execute(ctx context.Context) error {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
-	return fang.Execute(ctx, newRootCmd())
+	return fang.Execute(ctx, newRootCmd(), fang.WithErrorHandler(printError))
+}
+
+// printError keeps Fang's error style but not its capitalized first word,
+// which turns ~/.zshrc into ~/.Zshrc.
+func printError(w io.Writer, styles fang.Styles, err error) {
+	styles.ErrorText = styles.ErrorText.UnsetTransform()
+	fang.DefaultErrorHandler(w, styles, err)
 }

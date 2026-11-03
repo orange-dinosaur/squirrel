@@ -40,6 +40,10 @@ func (m *Manifest) Save(store string) error {
 		return err
 	}
 	defer os.Remove(f.Name())
+	if err := f.Chmod(0o644); err != nil {
+		f.Close()
+		return err
+	}
 	if err := toml.NewEncoder(f).Encode(m); err != nil {
 		f.Close()
 		return err
