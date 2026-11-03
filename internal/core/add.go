@@ -13,7 +13,7 @@ import (
 )
 
 // Add moves the item at path into the Store, links it back, and saves the
-// Manifest. Tags get this OS's tag unless they already name an OS. If a later
+// Manifest. Tags always get this OS's tag, since the Link is made here. If a later
 // stage fails, the earlier ones are undone so the item ends up where it was.
 func Add(env Env, m *Manifest, path string, tags []string) (Entry, error) {
 	e, abs, err := checkAdd(env, m, path, tags)
@@ -66,10 +66,7 @@ func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, 
 			return Entry{}, "", fmt.Errorf("tag %q must use only a-z, 0-9 and -", t)
 		}
 	}
-	tags = slices.Clone(tags)
-	if !slices.ContainsFunc(tags, func(t string) bool { return slices.Contains(osTags, t) }) {
-		tags = append(tags, env.OS)
-	}
+	tags = append(slices.Clone(tags), env.OS)
 	slices.Sort(tags)
 	e := Entry{ID: newID(m), Target: target, Tags: slices.Compact(tags)}
 	if id, ok := m.Clash(e); ok {

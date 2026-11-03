@@ -31,6 +31,6 @@ func newAddCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringArrayVarP(&tags, "tag", "t", nil, "tag the Entry, repeatable (this OS is added unless you name one)")
+	cmd.Flags().StringArrayVarP(&tags, "tag", "t", nil, "tag the Entry, repeatable (this OS is always added)")
 	return cmd
 }

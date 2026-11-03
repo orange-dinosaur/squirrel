@@ -62,8 +62,8 @@ func TestAddDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(e.Tags, []string{"linux"}) {
-		t.Errorf("tags = %v, want only linux", e.Tags)
+	if !slices.Equal(e.Tags, []string{"linux", "macos"}) {
+		t.Errorf("tags = %v, want linux and this OS", e.Tags)
 	}
 	assertLinked(t, env, e)
 	if _, err := os.Stat(filepath.Join(env.StorePath(e), "init.lua")); err != nil {
