@@ -11,11 +11,12 @@ import (
 
 type retagFunc func(core.Env, *core.Manifest, string, []string) (core.Entry, error)
 
-func newRetagCmd(use, short string, change retagFunc) *cobra.Command {
+func newRetagCmd(use, short string, change retagFunc, completeRest completeFunc) *cobra.Command {
 	return &cobra.Command{
-		Use:   use + " <path|id> <tags...>",
-		Short: short,
-		Args:  cobra.MinimumNArgs(2),
+		Use:               use + " <path|id> <tags...>",
+		Short:             short,
+		Args:              cobra.MinimumNArgs(2),
+		ValidArgsFunction: targetThen(completeRest),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			env, err := core.LoadEnv()
 			if err != nil {

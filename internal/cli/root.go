@@ -32,8 +32,8 @@ func newRootCmd() *cobra.Command {
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 	}
 	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd(),
-		newRetagCmd("tag", "Add Tags to an Entry", core.Tag),
-		newRetagCmd("untag", "Drop Tags from an Entry", core.Untag),
+		newRetagCmd("tag", "Add Tags to an Entry", core.Tag, completeNewTags),
+		newRetagCmd("untag", "Drop Tags from an Entry", core.Untag, completeEntryTags),
 		newTagsCmd())
 	return root
 }

@@ -17,6 +17,8 @@ func newApplyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply [tags...]",
 		Short: "Link every Entry for this OS, or those with any of the given Tags",
+
+		ValidArgsFunction: completeTags,
 		RunE: func(cmd *cobra.Command, tags []string) error {
 			if backup && overwrite {
 				return errors.New("--backup and --overwrite cannot be used together")

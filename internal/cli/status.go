@@ -15,6 +15,8 @@ func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status [tags...]",
 		Short: "Show whether each Entry is linked",
+
+		ValidArgsFunction: completeTags,
 		RunE: func(cmd *cobra.Command, tags []string) error {
 			env, err := core.LoadEnv()
 			if err != nil {
