@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"slices"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -18,33 +20,37 @@ func newStatusCmd() *cobra.Command {
 
 		ValidArgsFunction: completeTags,
 		RunE: func(cmd *cobra.Command, tags []string) error {
-			env, err := core.LoadEnv()
-			if err != nil {
-				return err
+			ok, err := printStatus(cmd.OutOrStdout(), tags, all)
+			if err == nil && !ok {
+				return errQuiet
 			}
-			m, err := core.Load(env.Store)
-			if err != nil {
-				return err
-			}
-			rows, err := core.Status(env, m, tags, all)
-			if err != nil {
-				return err
-			}
-			if len(rows) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "no Entries")
-				return nil
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), statusTable(rows))
-			for _, r := range rows {
-				if !r.OK() {
-					return errQuiet
-				}
-			}
-			return nil
+			return err
 		},
 	}
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "also show Entries for other OSes")
 	return cmd
+}
+
+// printStatus prints the status table and reports whether every row is OK.
+func printStatus(w io.Writer, tags []string, all bool) (bool, error) {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return false, err
+	}
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return false, err
+	}
+	rows, err := core.Status(env, m, tags, all)
+	if err != nil {
+		return false, err
+	}
+	if len(rows) == 0 {
+		fmt.Fprintln(w, "no Entries")
+		return true, nil
+	}
+	fmt.Fprintln(w, statusTable(rows))
+	return !slices.ContainsFunc(rows, func(r core.Row) bool { return !r.OK() }), nil
 }
 
 func statusTable(rows []core.Row) string {

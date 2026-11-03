@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"text/tabwriter"
 
@@ -42,19 +43,28 @@ func newTagsCmd() *cobra.Command {
 		Short: "List every Tag with the number of Entries that carry it",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			env, err := core.LoadEnv()
-			if err != nil {
-				return err
-			}
-			m, err := core.Load(env.Store)
-			if err != nil {
-				return err
-			}
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			for _, tc := range core.Tags(m) {
-				fmt.Fprintf(w, "%s\t%d\n", tc.Tag, tc.Count)
-			}
-			return w.Flush()
+			return printTags(cmd.OutOrStdout())
 		},
 	}
+}
+
+func printTags(out io.Writer) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return err
+	}
+	tags := core.Tags(m)
+	if len(tags) == 0 {
+		fmt.Fprintln(out, "no Tags")
+		return nil
+	}
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	for _, tc := range tags {
+		fmt.Fprintf(w, "%s\t%d\n", tc.Tag, tc.Count)
+	}
+	return w.Flush()
 }
