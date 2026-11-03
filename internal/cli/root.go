@@ -30,8 +30,13 @@ func newRootCmd() *cobra.Command {
 		Use:   "squirrel",
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 	}
-	root.AddCommand(newAddCmd(), newStatusCmd())
+	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd())
 	return root
+}
+
+func stdinIsTerminal() bool {
+	info, err := os.Stdin.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 // Execute runs the squirrel command line. Errors are already printed when it returns.
