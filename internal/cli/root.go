@@ -14,6 +14,10 @@ import (
 
 var errUnsupportedOS = errors.New("squirrel supports macOS and Linux only")
 
+// errQuiet makes squirrel exit 1 without printing anything, for commands whose
+// output already says what is wrong.
+var errQuiet = errors.New("quiet failure")
+
 func checkOS(goos string) error {
 	if goos != "darwin" && goos != "linux" {
 		return errUnsupportedOS
@@ -26,7 +30,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "squirrel",
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 	}
-	root.AddCommand(newAddCmd())
+	root.AddCommand(newAddCmd(), newStatusCmd())
 	return root
 }
 
@@ -42,6 +46,9 @@ func Execute(ctx context.Context) error {
 // printError keeps Fang's error style but not its capitalized first word,
 // which turns ~/.zshrc into ~/.Zshrc.
 func printError(w io.Writer, styles fang.Styles, err error) {
+	if errors.Is(err, errQuiet) {
+		return
+	}
 	styles.ErrorText = styles.ErrorText.UnsetTransform()
 	fang.DefaultErrorHandler(w, styles, err)
 }
