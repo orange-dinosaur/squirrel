@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/spf13/cobra"
@@ -15,24 +16,28 @@ func newRemoveCmd() *cobra.Command {
 
 		ValidArgsFunction: targetThen(completeNothing),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			env, err := core.LoadEnv()
-			if err != nil {
-				return err
-			}
-			m, err := core.Load(env.Store)
-			if err != nil {
-				return err
-			}
-			e, replaced, err := core.Remove(env, m, args[0])
-			if err != nil {
-				return err
-			}
-			if replaced {
-				fmt.Fprintf(cmd.OutOrStdout(), "removed %s (%s), a real copy replaced the Link\n", e.Target, e.ID)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "removed %s (%s), it had no Link here\n", e.Target, e.ID)
-			}
-			return nil
+			return runRemove(cmd.OutOrStdout(), args[0])
 		},
 	}
+}
+
+func runRemove(w io.Writer, arg string) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return err
+	}
+	e, replaced, err := core.Remove(env, m, arg)
+	if err != nil {
+		return err
+	}
+	if replaced {
+		fmt.Fprintf(w, "removed %s (%s), a real copy replaced the Link\n", e.Target, e.ID)
+	} else {
+		fmt.Fprintf(w, "removed %s (%s), it had no Link here\n", e.Target, e.ID)
+	}
+	return nil
 }

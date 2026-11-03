@@ -14,6 +14,7 @@ import (
 type Actions struct {
 	Add     func(path string, tags []string) error
 	Apply   func(tags []string) error
+	Remove  func(id string) error
 	Status  func() error
 	SetTags func(id string, tags []string) error
 	Tags    func() error
@@ -62,10 +63,14 @@ func Run(a Actions) error {
 			if id, tags, err = askTags(); err == nil {
 				err = a.SetTags(id, tags)
 			}
+		case remove:
+			var id string
+			var ok bool
+			if id, ok, err = askRemove(); err == nil && ok {
+				err = a.Remove(id)
+			}
 		case listTags:
 			err = a.Tags()
-		default:
-			fmt.Println("not yet available")
 		}
 		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			fmt.Fprintln(os.Stderr, err)
