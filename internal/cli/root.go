@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/charmbracelet/fang"
+	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +31,10 @@ func newRootCmd() *cobra.Command {
 		Use:   "squirrel",
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 	}
-	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd())
+	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd(),
+		newRetagCmd("tag", "Add Tags to an Entry", core.Tag),
+		newRetagCmd("untag", "Drop Tags from an Entry", core.Untag),
+		newTagsCmd())
 	return root
 }
 
