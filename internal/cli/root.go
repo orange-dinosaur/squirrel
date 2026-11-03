@@ -49,7 +49,8 @@ func newRootCmd() *cobra.Command {
 					_, err := printStatus(os.Stdout, nil, false)
 					return err
 				},
-				Tags: func() error { return printTags(os.Stdout) },
+				SetTags: func(id string, tags []string) error { return runSetTags(os.Stdout, id, tags) },
+				Tags:    func() error { return printTags(os.Stdout) },
 			})
 		},
 	}

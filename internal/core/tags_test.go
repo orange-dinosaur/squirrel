@@ -36,6 +36,22 @@ func TestTagUntag(t *testing.T) {
 	}
 }
 
+func TestSetTags(t *testing.T) {
+	env, m := tagEnv(t)
+
+	e, err := SetTags(env, m, "00000001", []string{"work", "macos"})
+	if err != nil || !slices.Equal(e.Tags, []string{"macos", "work"}) {
+		t.Fatalf("SetTags = %v, %v", e.Tags, err)
+	}
+	// Dropping macos would make it clash with the linux Entry on linux.
+	if _, err := SetTags(env, m, "00000001", []string{"work"}); err == nil || !strings.Contains(err.Error(), "00000002") {
+		t.Fatalf("SetTags clash = %v", err)
+	}
+	if !slices.Equal(m.Entries[0].Tags, []string{"macos", "work"}) {
+		t.Errorf("tags after refusal = %v", m.Entries[0].Tags)
+	}
+}
+
 func TestTagRefusals(t *testing.T) {
 	env, m := tagEnv(t)
 	if err := m.Save(env.Store); err != nil {

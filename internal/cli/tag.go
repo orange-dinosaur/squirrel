@@ -37,6 +37,23 @@ func newRetagCmd(use, short string, change retagFunc, completeRest completeFunc)
 	}
 }
 
+func runSetTags(w io.Writer, id string, tags []string) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return err
+	}
+	e, err := core.SetTags(env, m, id, tags)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "%s: %s\n", e.Target, strings.Join(e.Tags, " "))
+	return nil
+}
+
 func newTagsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "tags",

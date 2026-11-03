@@ -21,6 +21,12 @@ func Untag(env Env, m *Manifest, arg string, tags []string) (Entry, error) {
 	})
 }
 
+// SetTags replaces the Entry's tags with tags and saves the Manifest, under
+// the same checks as Tag and Untag.
+func SetTags(env Env, m *Manifest, arg string, tags []string) (Entry, error) {
+	return retag(env, m, arg, tags, func([]string) []string { return slices.Clone(tags) })
+}
+
 func retag(env Env, m *Manifest, arg string, tags []string, change func([]string) []string) (Entry, error) {
 	for _, t := range tags {
 		if !ValidTag(t) {
