@@ -56,6 +56,31 @@ func TestTagRefusals(t *testing.T) {
 	}
 }
 
+func TestUntagLinkedOS(t *testing.T) {
+	env := testEnv(t)
+	write(t, env.Home+"/.zshrc", "zsh")
+	m := &Manifest{}
+	e, err := Add(env, m, "~/.zshrc", []string{"linux"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Untag(env, m, e.ID, []string{"macos"}); err == nil || !strings.Contains(err.Error(), "linked here") {
+		t.Errorf("untag macos while linked: %v, want a refusal", err)
+	}
+	if _, err := Untag(env, m, e.ID, []string{"linux", "macos"}); err != nil {
+		t.Errorf("untag both OS tags leaves it applying here, want no refusal: %v", err)
+	}
+	if _, err := Tag(env, m, e.ID, []string{"linux"}); err == nil || !strings.Contains(err.Error(), "linked here") {
+		t.Errorf("tag linux on an untagged linked Entry: %v, want a refusal", err)
+	}
+
+	os.Remove(env.Home + "/.zshrc")
+	if _, err := Tag(env, m, e.ID, []string{"linux"}); err != nil {
+		t.Errorf("tag linux once the Link is gone: %v", err)
+	}
+}
+
 func TestTags(t *testing.T) {
 	_, m := tagEnv(t)
 	want := []TagCount{{"editor", 0}, {"linux", 1}, {"macos", 1}, {"shell", 2}}

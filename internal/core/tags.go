@@ -35,6 +35,9 @@ func retag(env Env, m *Manifest, arg string, tags []string, change func([]string
 	e.Tags = change(e.Tags)
 	slices.Sort(e.Tags)
 	e.Tags = slices.Compact(e.Tags)
+	if !e.Removed && !e.AppliesOn(env.OS) && isLink(env, e) {
+		return Entry{}, fmt.Errorf("%s is linked here, so it must keep applying on %s: remove it first, or change its tags on a machine where it isn't linked", e.Target, env.OS)
+	}
 	if id, ok := m.Clash(e); ok && !e.Removed {
 		return Entry{}, fmt.Errorf("%s would then apply on the same OS as Entry %s", e.Target, id)
 	}
