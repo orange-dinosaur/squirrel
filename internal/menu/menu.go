@@ -4,7 +4,6 @@ package menu
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/huh/v2"
@@ -18,6 +17,7 @@ type Actions struct {
 	Status  func() error
 	SetTags func(id string, tags []string) error
 	Tags    func() error
+	Error   func(error) // prints an action's failure
 }
 
 type item int
@@ -73,7 +73,7 @@ func Run(a Actions) error {
 			err = a.Tags()
 		}
 		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
-			fmt.Fprintln(os.Stderr, err)
+			a.Error(err)
 		}
 		fmt.Println()
 	}

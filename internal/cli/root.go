@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -52,6 +51,7 @@ func newRootCmd() *cobra.Command {
 				Remove:  func(id string) error { return runRemove(os.Stdout, id) },
 				SetTags: func(id string, tags []string) error { return runSetTags(os.Stdout, id, tags) },
 				Tags:    func() error { return printTags(os.Stdout) },
+				Error:   func(err error) { printErr(os.Stderr, err) },
 			})
 		},
 	}
@@ -59,6 +59,20 @@ func newRootCmd() *cobra.Command {
 		newRetagCmd("tag", "Add Tags to an Entry", core.Tag, completeNewTags),
 		newRetagCmd("untag", "Drop Tags from an Entry", core.Untag, completeEntryTags),
 		newTagsCmd())
+
+	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		return usageError{c.CommandPath(), err}
+	})
+	for _, c := range append(root.Commands(), root) {
+		if args := c.Args; args != nil {
+			c.Args = func(c *cobra.Command, a []string) error {
+				if err := args(c, a); err != nil {
+					return usageError{c.CommandPath(), err}
+				}
+				return nil
+			}
+		}
+	}
 	return root
 }
 
@@ -70,18 +84,14 @@ func stdinIsTerminal() bool {
 // Execute runs the squirrel command line. Errors are already printed when it returns.
 func Execute(ctx context.Context) error {
 	if err := checkOS(runtime.GOOS); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		printErr(os.Stderr, err)
 		return err
 	}
 	return fang.Execute(ctx, newRootCmd(), fang.WithErrorHandler(printError))
 }
 
-// printError keeps Fang's error style but not its capitalized first word,
-// which turns ~/.zshrc into ~/.Zshrc.
-func printError(w io.Writer, styles fang.Styles, err error) {
-	if errors.Is(err, errQuiet) {
-		return
+func printError(w io.Writer, _ fang.Styles, err error) {
+	if !errors.Is(err, errQuiet) {
+		printErr(w, err)
 	}
-	styles.ErrorText = styles.ErrorText.UnsetTransform()
-	fang.DefaultErrorHandler(w, styles, err)
 }
