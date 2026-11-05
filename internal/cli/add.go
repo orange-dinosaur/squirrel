@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -36,6 +35,6 @@ func runAdd(w io.Writer, path string, tags []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "added %s (%s) [%s]\n", e.Target, e.ID, strings.Join(e.Tags, " "))
+	printLines(w, line{done, "added", e.Target, []string{e.ID, strings.Join(e.Tags, " ")}})
 	return nil
 }

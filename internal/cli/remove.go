@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/orange-dinosaur/squirrel/internal/core"
@@ -34,10 +33,10 @@ func runRemove(w io.Writer, arg string) error {
 	if err != nil {
 		return err
 	}
+	note := "it had no Link here"
 	if replaced {
-		fmt.Fprintf(w, "removed %s (%s), a real copy replaced the Link\n", e.Target, e.ID)
-	} else {
-		fmt.Fprintf(w, "removed %s (%s), it had no Link here\n", e.Target, e.ID)
+		note = "a real copy replaced the Link"
 	}
+	printLines(w, line{noop, "removed", e.Target, []string{e.ID, note}})
 	return nil
 }
