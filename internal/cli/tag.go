@@ -31,7 +31,7 @@ func newRetagCmd(use, short string, change retagFunc, completeRest completeFunc)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", e.Target, strings.Join(e.Tags, " "))
+			printTagged(cmd.OutOrStdout(), e)
 			return nil
 		},
 	}
@@ -50,8 +50,13 @@ func runSetTags(w io.Writer, id string, tags []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "%s: %s\n", e.Target, strings.Join(e.Tags, " "))
+	printTagged(w, e)
 	return nil
+}
+
+// printTagged shows the Tags an Entry carries after a change, for tag and untag alike.
+func printTagged(w io.Writer, e core.Entry) {
+	printLines(w, line{done, "tagged", e.Target, []string{strings.Join(e.Tags, " ")}})
 }
 
 func newTagsCmd() *cobra.Command {
@@ -76,7 +81,7 @@ func printTags(out io.Writer) error {
 	}
 	tags := core.Tags(m)
 	if len(tags) == 0 {
-		fmt.Fprintln(out, "no Tags")
+		printLines(out, line{noop, "no Tags", "", nil})
 		return nil
 	}
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
