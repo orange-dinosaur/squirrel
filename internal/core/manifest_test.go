@@ -25,7 +25,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 
 	raw, _ := os.ReadFile(filepath.Join(store, manifestName))
-	const text = `[[entry]]
+	const text = `tags = ["linux", "work"]
+
+[[entry]]
   id = "a1b2c3d4"
   target = "~/.gitconfig"
   tags = ["linux", "work"]
@@ -54,5 +56,29 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	files, _ := os.ReadDir(store)
 	if len(files) != 1 {
 		t.Errorf("Store holds %d files after Save, want only the Manifest", len(files))
+	}
+}
+
+func TestLoadWithoutTagList(t *testing.T) {
+	store := t.TempDir()
+	const old = `[[entry]]
+  id = "a1b2c3d4"
+  target = "~/.gitconfig"
+  tags = ["work", "linux"]
+
+[[entry]]
+  id = "7a8b9c0d"
+  target = "~/.vimrc"
+  tags = ["work"]
+`
+	if err := os.WriteFile(filepath.Join(store, manifestName), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, err := Load(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"linux", "work"}; !reflect.DeepEqual(m.Tags, want) {
+		t.Errorf("Tags = %v, want %v", m.Tags, want)
 	}
 }

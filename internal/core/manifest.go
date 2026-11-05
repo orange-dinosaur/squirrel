@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/BurntSushi/toml"
 )
@@ -19,7 +20,8 @@ type Entry struct {
 }
 
 type Manifest struct {
-	Entries []Entry `toml:"entry"`
+	Tags    []string `toml:"tags,omitempty"` // every Tag squirrel remembers, carried or not
+	Entries []Entry  `toml:"entry"`
 }
 
 // Load reads the Manifest in store. A missing file is an empty Manifest.
@@ -29,7 +31,18 @@ func Load(store string) (*Manifest, error) {
 	if errors.Is(err, fs.ErrNotExist) {
 		return &m, nil
 	}
+	m.remember()
 	return &m, err
+}
+
+// remember adds the Entries' Tags to the Tag list, so the list never misses
+// one, including in a Manifest written before it had a list.
+func (m *Manifest) remember() {
+	for _, e := range m.Entries {
+		m.Tags = append(m.Tags, e.Tags...)
+	}
+	slices.Sort(m.Tags)
+	m.Tags = slices.Compact(m.Tags)
 }
 
 // Save writes the Manifest to a temp file in store, then renames it over the
@@ -40,6 +53,7 @@ func (m *Manifest) Save(store string) error {
 		return err
 	}
 	defer os.Remove(f.Name())
+	m.remember()
 	if err := f.Chmod(0o644); err != nil {
 		f.Close()
 		return err

@@ -97,6 +97,27 @@ func TestUntagLinkedOS(t *testing.T) {
 	}
 }
 
+func TestTagOutlivesLastEntry(t *testing.T) {
+	env := testEnv(t)
+	if err := os.MkdirAll(env.Store, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manifest{Entries: []Entry{{ID: "00000001", Target: "~/.vimrc", Tags: []string{"work"}}}}
+	if err := m.Save(env.Store); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Untag(env, m, "00000001", []string{"work"}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := Load(env.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := Tags(saved), []TagCount{{"work", 0}}; !slices.Equal(got, want) {
+		t.Errorf("Tags after untagging the last Entry = %v, want %v", got, want)
+	}
+}
+
 func TestTags(t *testing.T) {
 	_, m := tagEnv(t)
 	want := []TagCount{{"editor", 0}, {"linux", 1}, {"macos", 1}, {"shell", 2}}

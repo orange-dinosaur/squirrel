@@ -61,9 +61,12 @@ type TagCount struct {
 	Count int // non-removed Entries carrying the Tag
 }
 
-// Tags lists every Tag in the Manifest, sorted.
+// Tags lists every Tag in the Manifest, remembered or carried, sorted.
 func Tags(m *Manifest) []TagCount {
 	counts := map[string]int{}
+	for _, t := range m.Tags {
+		counts[t] = 0
+	}
 	for _, e := range m.Entries {
 		for _, t := range e.Tags {
 			n := counts[t]
