@@ -31,7 +31,7 @@ func newRetagCmd(use, short string, change retagFunc, completeRest completeFunc)
 			if err != nil {
 				return err
 			}
-			printTagged(cmd.OutOrStdout(), e)
+			printTagged(cmd.OutOrStdout(), use+"ged", e) // tagged, untagged
 			return nil
 		},
 	}
@@ -50,13 +50,13 @@ func runSetTags(w io.Writer, id string, tags []string) error {
 	if err != nil {
 		return err
 	}
-	printTagged(w, e)
+	printTagged(w, "tagged", e)
 	return nil
 }
 
-// printTagged shows the Tags an Entry carries after a change, for tag and untag alike.
-func printTagged(w io.Writer, e core.Entry) {
-	printLines(w, line{done, "tagged", e.Target, []string{strings.Join(e.Tags, " ")}})
+// printTagged shows the Tags an Entry carries after a change.
+func printTagged(w io.Writer, verb string, e core.Entry) {
+	printLines(w, line{done, verb, e.Target, []string{strings.Join(e.Tags, " ")}})
 }
 
 func newTagsCmd() *cobra.Command {
