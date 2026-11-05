@@ -12,6 +12,7 @@ func TestPrintErr(t *testing.T) {
 		"add":         "accepts 1 arg(s), received 0\n  try squirrel add --help\n",
 		"add --bogus": "unknown flag: --bogus\n  try squirrel add --help\n",
 		"bogus":       "unknown command \"bogus\" for \"squirrel\"\n  try squirrel --help\n",
+		"tags rm":     "accepts 1 arg(s), received 0\n  try squirrel tags rm --help\n",
 	} {
 		root := newRootCmd()
 		root.SetArgs(strings.Fields(args))

@@ -56,6 +56,20 @@ func retag(env Env, m *Manifest, arg string, tags []string, change func([]string
 	return e, nil
 }
 
+// TagCarriedError is DeleteTag refusing because live Entries still carry the Tag.
+type TagCarriedError struct {
+	Tag     string
+	Entries []Entry
+}
+
+func (e TagCarriedError) Error() string {
+	noun := "entries"
+	if len(e.Entries) == 1 {
+		noun = "entry"
+	}
+	return fmt.Sprintf("%s is on %d %s", e.Tag, len(e.Entries), noun)
+}
+
 // DeleteTag forgets tag and saves the Manifest. It refuses while a live Entry
 // carries tag, unless untag is set, which drops tag from those Entries first.
 // Removed Entries never block it and lose tag silently. It returns the live
@@ -80,12 +94,14 @@ func DeleteTag(env Env, m *Manifest, tag string, untag bool) ([]Entry, error) {
 			untagged = append(untagged, e)
 		}
 	}
-	if n := len(untagged); n > 0 && !untag {
-		noun := "entries"
-		if n == 1 {
-			noun = "entry"
+	if len(untagged) > 0 && !untag {
+		var carriers []Entry
+		for _, e := range m.Entries {
+			if !e.Removed && slices.Contains(e.Tags, tag) {
+				carriers = append(carriers, e)
+			}
 		}
-		return nil, fmt.Errorf("%s is on %d %s", tag, n, noun)
+		return nil, TagCarriedError{tag, carriers}
 	}
 	next := &Manifest{
 		Tags:    slices.DeleteFunc(slices.Clone(m.Tags), func(t string) bool { return t == tag }),

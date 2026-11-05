@@ -9,6 +9,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
+	"github.com/spf13/cobra"
 )
 
 type mark int
@@ -48,28 +49,36 @@ func styled(w io.Writer) bool {
 	return colorprofile.Detect(w, os.Environ()) > colorprofile.ASCII
 }
 
-// usageError is a mistake in how a command was typed, so the help is worth a look.
-type usageError struct {
-	cmd string // "squirrel add"
-	err error
+// hintError is an error with a next step worth printing under it.
+type hintError struct {
+	hint    string   // "try squirrel add --help"
+	details []string // lines printed between the error and the hint
+	err     error
 }
 
-func (e usageError) Error() string { return e.err.Error() }
-func (e usageError) Unwrap() error { return e.err }
+func (e hintError) Error() string { return e.err.Error() }
+func (e hintError) Unwrap() error { return e.err }
 
-// printErr prints "✗ message", plus a pointer to --help for a usage error.
+// usageError is a mistake in how cmd was typed, so its help is worth a look.
+func usageError(cmd *cobra.Command, err error) error {
+	return hintError{hint: "try " + cmd.CommandPath() + " --help", err: err}
+}
+
+// printErr prints "✗ message", plus the details and hint of a hintError.
 func printErr(w io.Writer, err error) {
 	printLines(w, line{fail, err.Error(), "", nil})
-	cmd := ""
-	if ue, ok := errors.AsType[usageError](err); ok {
-		cmd = ue.cmd
+	hint := ""
+	if he, ok := errors.AsType[hintError](err); ok {
+		for _, d := range he.details {
+			fmt.Fprintln(w, "  "+d)
+		}
+		hint = he.hint
 	} else if strings.HasPrefix(err.Error(), "unknown command") {
-		cmd = "squirrel"
+		hint = "try squirrel --help"
 	}
-	if cmd == "" {
+	if hint == "" {
 		return
 	}
-	hint := "try " + cmd + " --help"
 	if styled(w) {
 		hint = dim.Render(hint)
 	}

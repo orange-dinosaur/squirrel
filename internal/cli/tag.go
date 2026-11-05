@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -60,7 +61,7 @@ func printTagged(w io.Writer, verb string, e core.Entry) {
 }
 
 func newTagsCmd() *cobra.Command {
-	return &cobra.Command{
+	c := &cobra.Command{
 		Use:   "tags",
 		Short: "List every Tag with the number of Entries that carry it",
 		Args:  cobra.NoArgs,
@@ -68,6 +69,51 @@ func newTagsCmd() *cobra.Command {
 			return printTags(cmd.OutOrStdout())
 		},
 	}
+	var untag bool
+	rm := &cobra.Command{
+		Use:               "rm <tag>",
+		Short:             "Forget a Tag",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeDeletableTags,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDeleteTag(cmd.OutOrStdout(), args[0], untag)
+		},
+	}
+	rm.Flags().BoolVar(&untag, "untag", false, "drop the Tag from the Entries that carry it first")
+	c.AddCommand(rm)
+	return c
+}
+
+func runDeleteTag(w io.Writer, tag string, untag bool) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return err
+	}
+	untagged, err := core.DeleteTag(env, m, tag, untag)
+	if ce, ok := errors.AsType[core.TagCarriedError](err); ok {
+		width := 0
+		for _, e := range ce.Entries {
+			width = max(width, len(e.Target))
+		}
+		var details []string
+		for _, e := range ce.Entries {
+			details = append(details, fmt.Sprintf("%-*s  %s", width, e.Target, e.ID))
+		}
+		return hintError{"try squirrel tags rm " + tag + " --untag", details, err}
+	}
+	if err != nil {
+		return err
+	}
+	var lines []line
+	for _, e := range untagged {
+		lines = append(lines, line{noop, "untagged", e.Target, []string{tag}})
+	}
+	printLines(w, append(lines, line{noop, "deleted", tag, nil})...)
+	return nil
 }
 
 func printTags(out io.Writer) error {

@@ -38,6 +38,8 @@ func TestCompletion(t *testing.T) {
 		"untag|~/.zshrc|":  env.OS + " shell",
 		"remove|~/.vimrc|": "",
 		"apply|shell|":     "editor " + env.OS,
+		"tags|rm|":         "editor shell",
+		"tags|rm|shell|":   "",
 	} {
 		if got := complete(strings.Split(args, "|")...); got != want {
 			t.Errorf("complete %q = %q, want %q", args, got, want)

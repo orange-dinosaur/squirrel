@@ -61,13 +61,17 @@ func newRootCmd() *cobra.Command {
 		newTagsCmd())
 
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
-		return usageError{c.CommandPath(), err}
+		return usageError(c, err)
 	})
-	for _, c := range append(root.Commands(), root) {
+	cmds := []*cobra.Command{root}
+	for i := 0; i < len(cmds); i++ {
+		cmds = append(cmds, cmds[i].Commands()...)
+	}
+	for _, c := range cmds {
 		if args := c.Args; args != nil {
 			c.Args = func(c *cobra.Command, a []string) error {
 				if err := args(c, a); err != nil {
-					return usageError{c.CommandPath(), err}
+					return usageError(c, err)
 				}
 				return nil
 			}

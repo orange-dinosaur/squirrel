@@ -50,6 +50,15 @@ func completeTags(cmd *cobra.Command, args []string, _ string) ([]string, cobra.
 	return out, noFiles
 }
 
+// completeDeletableTags offers the Tags tags rm can delete, for its one argument.
+func completeDeletableTags(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, noFiles
+	}
+	all, _ := completeTags(cmd, args, toComplete)
+	return slices.DeleteFunc(all, func(t string) bool { return slices.Contains(core.OSTags, t) }), noFiles
+}
+
 // completeNewTags offers the Tags the Entry in args[0] doesn't carry yet, for tag.
 func completeNewTags(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	all, _ := completeTags(cmd, args, toComplete)
