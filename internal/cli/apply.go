@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/orange-dinosaur/squirrel/internal/core"
@@ -65,7 +66,7 @@ func runApply(w io.Writer, tags []string, backup, overwrite bool) error {
 		for _, c := range plan.Conflicts {
 			r, err := askResolution(c)
 			if err != nil || r == quit {
-				fmt.Fprintln(w, "quit, nothing changed")
+				printLines(w, line{noop, "quit, nothing changed", "", nil})
 				return errQuiet
 			}
 			resolve[c.Entry.ID] = r
@@ -96,30 +97,46 @@ func askResolution(c core.Row) (core.Resolution, error) {
 }
 
 func printApply(w io.Writer, env core.Env, plan core.Plan, res core.Result, resolve map[string]core.Resolution) {
+	var lines []line
 	for _, dir := range plan.Parents {
 		if t, ok := env.Contract(dir); ok {
-			fmt.Fprintln(w, "created", t)
+			lines = append(lines, line{done, "created", t, nil})
 		}
 	}
 	for _, e := range res.Linked {
 		switch resolve[e.ID] {
 		case core.Backup:
-			fmt.Fprintf(w, "linked %s, old one saved as %s.squirrel-backup\n", e.Target, e.Target)
+			lines = append(lines, line{done, "linked", e.Target, []string{"old one saved as " + e.Target + ".squirrel-backup"}})
 		case core.Overwrite:
-			fmt.Fprintf(w, "linked %s, old one deleted\n", e.Target)
+			lines = append(lines, line{warn, "linked", e.Target, []string{"old one deleted"}})
 		default:
-			fmt.Fprintln(w, "linked", e.Target)
+			lines = append(lines, line{done, "linked", e.Target, nil})
 		}
 	}
 	for _, e := range res.Unmanaged {
-		fmt.Fprintln(w, "unmanaged", e.Target)
+		lines = append(lines, line{noop, "unmanaged", e.Target, nil})
 	}
 	for _, s := range res.Skipped {
-		fmt.Fprintf(w, "skipped %s: %s\n", s.Entry.Target, s.Reason)
+		lines = append(lines, line{warn, "skipped", s.Entry.Target, []string{s.Reason}})
 	}
 	if len(res.Linked)+len(res.Unmanaged)+len(res.Skipped) == 0 {
-		fmt.Fprintln(w, "nothing to do")
+		printLines(w, line{noop, "nothing to do", "", nil})
 		return
 	}
-	fmt.Fprintf(w, "%d linked, %d unmanaged, %d skipped\n", len(res.Linked), len(res.Unmanaged), len(res.Skipped))
+	printLines(w, lines...)
+	fmt.Fprintln(w, applySummary(len(res.Linked), len(res.Unmanaged), len(res.Skipped)))
+}
+
+// applySummary reads like "2 linked · 1 skipped", leaving out zero counts.
+func applySummary(linked, unmanaged, skipped int) string {
+	var parts []string
+	for _, c := range []struct {
+		n    int
+		verb string
+	}{{linked, "linked"}, {unmanaged, "unmanaged"}, {skipped, "skipped"}} {
+		if c.n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", c.n, c.verb))
+		}
+	}
+	return strings.Join(parts, " · ")
 }
