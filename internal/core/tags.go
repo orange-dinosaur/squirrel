@@ -56,6 +56,48 @@ func retag(env Env, m *Manifest, arg string, tags []string, change func([]string
 	return e, nil
 }
 
+// DeleteTag forgets tag and saves the Manifest. It refuses while a live Entry
+// carries tag, unless untag is set, which drops tag from those Entries first.
+// Removed Entries never block it and lose tag silently. It returns the live
+// Entries it untagged.
+func DeleteTag(env Env, m *Manifest, tag string, untag bool) ([]Entry, error) {
+	m.remember()
+	if slices.Contains(OSTags, tag) {
+		return nil, fmt.Errorf("%s is an OS tag and can't be deleted", tag)
+	}
+	if !slices.Contains(m.Tags, tag) {
+		return nil, fmt.Errorf("no Tag %q", tag)
+	}
+	entries := slices.Clone(m.Entries)
+	var untagged []Entry
+	for i, e := range entries {
+		if !slices.Contains(e.Tags, tag) {
+			continue
+		}
+		e.Tags = slices.DeleteFunc(slices.Clone(e.Tags), func(t string) bool { return t == tag })
+		entries[i] = e
+		if !e.Removed {
+			untagged = append(untagged, e)
+		}
+	}
+	if n := len(untagged); n > 0 && !untag {
+		noun := "entries"
+		if n == 1 {
+			noun = "entry"
+		}
+		return nil, fmt.Errorf("%s is on %d %s", tag, n, noun)
+	}
+	next := &Manifest{
+		Tags:    slices.DeleteFunc(slices.Clone(m.Tags), func(t string) bool { return t == tag }),
+		Entries: entries,
+	}
+	if err := next.Save(env.Store); err != nil {
+		return nil, err
+	}
+	*m = *next
+	return untagged, nil
+}
+
 type TagCount struct {
 	Tag   string
 	Count int // non-removed Entries carrying the Tag

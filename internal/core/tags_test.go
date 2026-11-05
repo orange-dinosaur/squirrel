@@ -118,6 +118,50 @@ func TestTagOutlivesLastEntry(t *testing.T) {
 	}
 }
 
+func TestDeleteTagRefusals(t *testing.T) {
+	env, m := tagEnv(t)
+	m.Entries[0].Tags = append(m.Entries[0].Tags, "work")
+	before := Tags(m)
+
+	for tag, want := range map[string]string{
+		"macos": "OS tag",
+		"nope":  `no Tag "nope"`,
+		"shell": "shell is on 2 entries",
+		"work":  "work is on 1 entry",
+	} {
+		if _, err := DeleteTag(env, m, tag, false); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("DeleteTag(%s) = %v, want %q", tag, err, want)
+		}
+	}
+	if got := Tags(m); !slices.Equal(got, before) {
+		t.Errorf("a refused delete changed the Tags: %v, want %v", got, before)
+	}
+}
+
+func TestDeleteTag(t *testing.T) {
+	env, m := tagEnv(t)
+
+	// Only the Removed Entry carries editor, so nothing blocks it.
+	if untagged, err := DeleteTag(env, m, "editor", false); err != nil || len(untagged) != 0 {
+		t.Fatalf("DeleteTag(editor) = %v, %v", untagged, err)
+	}
+	if len(m.Entries[2].Tags) != 0 {
+		t.Errorf("Removed Entry kept %v", m.Entries[2].Tags)
+	}
+
+	untagged, err := DeleteTag(env, m, "shell", true)
+	if err != nil || len(untagged) != 2 || untagged[0].ID != "00000001" || !slices.Equal(untagged[0].Tags, []string{"macos"}) {
+		t.Fatalf("DeleteTag(shell, untag) = %v, %v", untagged, err)
+	}
+	saved, err := Load(env.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := Tags(saved), []TagCount{{"linux", 1}, {"macos", 1}}; !slices.Equal(got, want) {
+		t.Errorf("saved Tags = %v, want %v", got, want)
+	}
+}
+
 func TestTags(t *testing.T) {
 	_, m := tagEnv(t)
 	want := []TagCount{{"editor", 0}, {"linux", 1}, {"macos", 1}, {"shell", 2}}
