@@ -1,5 +1,6 @@
 # Working notes, not part of the project
 .notes/
+.notes
 
 # Local builds
 bin/
