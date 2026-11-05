@@ -35,9 +35,9 @@ func TestCompletion(t *testing.T) {
 	for args, want := range map[string]string{
 		"tag|":             "~/.zshrc ~/.vimrc",
 		"tag|~/.zshrc|":    "editor",
-		"untag|~/.zshrc|":  "macos shell",
+		"untag|~/.zshrc|":  env.OS + " shell",
 		"remove|~/.vimrc|": "",
-		"apply|shell|":     "editor macos",
+		"apply|shell|":     "editor " + env.OS,
 	} {
 		if got := complete(strings.Split(args, "|")...); got != want {
 			t.Errorf("complete %q = %q, want %q", args, got, want)
