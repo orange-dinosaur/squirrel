@@ -47,13 +47,9 @@ func (m *Manifest) Find(env Env, arg string) (int, error) {
 	if i := slices.IndexFunc(m.Entries, func(e Entry) bool { return e.ID == arg }); i >= 0 {
 		return i, nil
 	}
-	path, err := filepath.Abs(env.Expand(arg))
+	target, err := env.targetOf(arg)
 	if err != nil {
 		return -1, err
-	}
-	target, ok := env.Contract(path)
-	if !ok {
-		return -1, fmt.Errorf("%s is outside HOME", arg)
 	}
 	i := slices.IndexFunc(m.Entries, func(e Entry) bool {
 		return e.Target == target && !e.Removed && e.AppliesOn(env.OS)
@@ -62,6 +58,20 @@ func (m *Manifest) Find(env Env, arg string) (int, error) {
 		return -1, fmt.Errorf("no Entry for %s on %s", target, env.OS)
 	}
 	return i, nil
+}
+
+// targetOf turns a path argument into its ~ form, resolving relative paths
+// against the working directory.
+func (e Env) targetOf(arg string) (string, error) {
+	path, err := filepath.Abs(e.Expand(arg))
+	if err != nil {
+		return "", err
+	}
+	target, ok := e.Contract(path)
+	if !ok {
+		return "", fmt.Errorf("%s is outside HOME", arg)
+	}
+	return target, nil
 }
 
 // Clash returns the ID of another non-removed Entry for the same target that
