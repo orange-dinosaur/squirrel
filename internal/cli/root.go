@@ -51,7 +51,11 @@ func newRootCmd() *cobra.Command {
 				Remove:  func(id string) error { return runRemove(os.Stdout, id) },
 				SetTags: func(id string, tags []string) error { return runSetTags(os.Stdout, id, tags) },
 				Tags:    func() error { return printTags(os.Stdout) },
-				Error:   func(err error) { printErr(os.Stderr, err) },
+				DeleteTag: func(tag string, untag bool) error {
+					return runDeleteTag(os.Stdout, tag, untag)
+				},
+				Note:  func(msg string) { printLines(os.Stdout, line{noop, msg, "", nil}) },
+				Error: func(err error) { printErr(os.Stderr, err) },
 			})
 		},
 	}

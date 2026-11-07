@@ -11,13 +11,15 @@ import (
 
 // Actions are the commands the menu runs. Each prints its own output.
 type Actions struct {
-	Add     func(path string, tags []string) error
-	Apply   func(tags []string) error
-	Remove  func(id string) error
-	Status  func() error
-	SetTags func(id string, tags []string) error
-	Tags    func() error
-	Error   func(error) // prints an action's failure
+	Add       func(path string, tags []string) error
+	Apply     func(tags []string) error
+	Remove    func(id string) error
+	Status    func() error
+	SetTags   func(id string, tags []string) error
+	Tags      func() error
+	DeleteTag func(tag string, untag bool) error
+	Note      func(msg string) // prints a line for an action that did nothing
+	Error     func(error)      // prints an action's failure
 }
 
 type item int
@@ -29,6 +31,7 @@ const (
 	changeTags
 	remove
 	listTags
+	deleteTag
 	quit
 )
 
@@ -71,6 +74,16 @@ func Run(a Actions) error {
 			}
 		case listTags:
 			err = a.Tags()
+		case deleteTag:
+			var tag, note string
+			var untag bool
+			if tag, untag, note, err = askDeleteTag(); err == nil {
+				if note != "" {
+					a.Note(note)
+				} else {
+					err = a.DeleteTag(tag, untag)
+				}
+			}
 		}
 		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			a.Error(err)
@@ -98,6 +111,7 @@ func pick() (item, error) {
 				huh.NewOption("Change tags", changeTags),
 				huh.NewOption("Remove", remove),
 				huh.NewOption("List tags", listTags),
+				huh.NewOption("Delete a tag", deleteTag),
 				huh.NewOption("Quit", quit),
 			).
 			Value(&choice),
