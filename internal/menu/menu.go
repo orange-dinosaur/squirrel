@@ -96,6 +96,8 @@ func Run(a Actions) error {
 func keys() *huh.KeyMap {
 	k := huh.NewDefaultKeyMap()
 	k.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
+	// Enter picks a folder rather than opening it, so the help names → instead.
+	k.FilePicker.Open = key.NewBinding(key.WithKeys("l", "right", "enter"), key.WithHelp("→", "open"))
 	return k
 }
 
