@@ -35,6 +35,21 @@ func completeTargets(cmd *cobra.Command, args []string, _ string) ([]string, cob
 	return out, noFiles
 }
 
+// completeRemovedTargets offers the targets of Removed Entries, on any OS, not already typed.
+func completeRemovedTargets(cmd *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	_, m, ok := loadForCompletion()
+	if !ok {
+		return nil, noFiles
+	}
+	var out []string
+	for _, e := range m.Entries {
+		if e.Removed && !slices.Contains(out, e.Target) && !slices.Contains(args, e.Target) {
+			out = append(out, e.Target)
+		}
+	}
+	return out, noFiles
+}
+
 // completeTags offers every Tag not already typed.
 func completeTags(cmd *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 	_, m, ok := loadForCompletion()

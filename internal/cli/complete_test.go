@@ -45,4 +45,16 @@ func TestCompletion(t *testing.T) {
 			t.Errorf("complete %q = %q, want %q", args, got, want)
 		}
 	}
+
+	core.Remove(env, m, "~/.vimrc")
+	core.Add(env, m, "~/.vimrc", nil)
+	core.Remove(env, m, "~/.vimrc")
+	for args, want := range map[string]string{
+		"purge|":          "~/.vimrc",
+		"purge|~/.vimrc|": "",
+	} {
+		if got := complete(strings.Split(args, "|")...); got != want {
+			t.Errorf("complete %q = %q, want %q", args, got, want)
+		}
+	}
 }

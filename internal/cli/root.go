@@ -60,7 +60,7 @@ func newRootCmd() *cobra.Command {
 			})
 		},
 	}
-	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd(),
+	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd(), newPurgeCmd(),
 		newRetagCmd("tag", "Add Tags to an Entry", core.Tag, completeNewTags),
 		newRetagCmd("untag", "Drop Tags from an Entry", core.Untag, completeEntryTags),
 		newTagsCmd())
