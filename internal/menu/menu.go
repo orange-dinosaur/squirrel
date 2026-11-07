@@ -28,8 +28,7 @@ const (
 	add item = iota
 	apply
 	status
-	changeTags
-	remove
+	browseEntries
 	listTags
 	deleteTag
 	quit
@@ -60,18 +59,8 @@ func Run(a Actions) error {
 			}
 		case status:
 			err = a.Status()
-		case changeTags:
-			var id string
-			var tags []string
-			if id, tags, err = askTags(); err == nil {
-				err = a.SetTags(id, tags)
-			}
-		case remove:
-			var id string
-			var ok bool
-			if id, ok, err = askRemove(); err == nil && ok {
-				err = a.Remove(id)
-			}
+		case browseEntries:
+			err = browse(a)
 		case listTags:
 			err = a.Tags()
 		case deleteTag:
@@ -110,8 +99,7 @@ func pick() (item, error) {
 				huh.NewOption("Add a file or directory", add),
 				huh.NewOption("Apply", apply),
 				huh.NewOption("Show status", status),
-				huh.NewOption("Change tags", changeTags),
-				huh.NewOption("Remove", remove),
+				huh.NewOption("Browse Entries", browseEntries),
 				huh.NewOption("List tags", listTags),
 				huh.NewOption("Delete a tag", deleteTag),
 				huh.NewOption("Quit", quit),

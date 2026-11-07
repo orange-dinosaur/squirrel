@@ -9,28 +9,14 @@ import (
 	"github.com/orange-dinosaur/squirrel/internal/core"
 )
 
-// askTags picks an Entry, then asks for its full set of Tags with the current
-// ones ticked. It returns the Entry's ID and the Tags to keep.
-func askTags() (string, []string, error) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return "", nil, err
-	}
-	m, err := core.Load(env.Store)
-	if err != nil {
-		return "", nil, err
-	}
-	id, err := pickEntry(env, m, "Change tags of")
-	if err != nil {
-		return "", nil, err
-	}
-	e := m.Entries[slices.IndexFunc(m.Entries, func(e core.Entry) bool { return e.ID == id })]
-
+// askTags asks for e's full set of Tags with the current ones ticked, and
+// returns the Tags to keep.
+func askTags(m *core.Manifest, e core.Entry) ([]string, error) {
 	picked := slices.Clone(e.Tags)
 	var extra string
 	pick, add := tagFields("Tags for "+e.Target, "", tagChoices(m), &picked, &extra)
-	err = huh.NewForm(huh.NewGroup(pick, add)).WithKeyMap(keys()).Run()
-	return id, append(picked, strings.Fields(extra)...), err
+	err := huh.NewForm(huh.NewGroup(pick, add)).WithKeyMap(keys()).Run()
+	return append(picked, strings.Fields(extra)...), err
 }
 
 // tagChoices lists the Manifest's Tags and the OS Tags, sorted.
