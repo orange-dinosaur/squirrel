@@ -18,8 +18,9 @@ type Actions struct {
 	SetTags   func(id string, tags []string) error
 	Tags      func() error
 	DeleteTag func(tag string, untag bool) error
-	Note      func(msg string) // prints a line for an action that did nothing
-	Error     func(error)      // prints an action's failure
+	Purge     func(ids []string) error // the menu has already asked
+	Note      func(msg string)         // prints a line for an action that did nothing
+	Error     func(error)              // prints an action's failure
 }
 
 type item int
@@ -31,6 +32,7 @@ const (
 	browseEntries
 	listTags
 	deleteTag
+	purge
 	quit
 )
 
@@ -73,6 +75,16 @@ func Run(a Actions) error {
 					err = a.DeleteTag(tag, untag)
 				}
 			}
+		case purge:
+			var ids []string
+			var note string
+			if ids, note, err = askPurge(); err == nil {
+				if note != "" {
+					a.Note(note)
+				} else {
+					err = a.Purge(ids)
+				}
+			}
 		}
 		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
 			a.Error(err)
@@ -92,18 +104,21 @@ func keys() *huh.KeyMap {
 
 func pick() (item, error) {
 	choice := add
+	opts := []huh.Option[item]{
+		huh.NewOption("Add a file or directory", add),
+		huh.NewOption("Apply", apply),
+		huh.NewOption("Show status", status),
+		huh.NewOption("Browse Entries", browseEntries),
+		huh.NewOption("List tags", listTags),
+		huh.NewOption("Delete a tag", deleteTag),
+	}
+	if hasRemoved() {
+		opts = append(opts, huh.NewOption("Purge removed Entries", purge))
+	}
 	err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[item]().
 			Title("What do you want to do?").
-			Options(
-				huh.NewOption("Add a file or directory", add),
-				huh.NewOption("Apply", apply),
-				huh.NewOption("Show status", status),
-				huh.NewOption("Browse Entries", browseEntries),
-				huh.NewOption("List tags", listTags),
-				huh.NewOption("Delete a tag", deleteTag),
-				huh.NewOption("Quit", quit),
-			).
+			Options(append(opts, huh.NewOption("Quit", quit))...).
 			Value(&choice),
 	)).WithKeyMap(keys()).Run()
 	return choice, err
