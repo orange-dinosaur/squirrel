@@ -9,9 +9,9 @@ import (
 	"github.com/orange-dinosaur/squirrel/internal/core"
 )
 
-// askAdd asks for a path, picked from the home folder or typed and checked as
-// you go, then its Tags.
-func askAdd() (string, []string, error) {
+// AskAdd asks for a path, picked from the home folder or typed and checked as
+// you go, then its Tags unless withTags is false.
+func AskAdd(withTags bool) (string, []string, error) {
 	env, err := core.LoadEnv()
 	if err != nil {
 		return "", nil, err
@@ -65,10 +65,11 @@ func askAdd() (string, []string, error) {
 	}
 
 	var picked []string
-	pick, add := tagFields("Tags", env.OS+" is always added", choices, &picked, &extra)
-	err = huh.NewForm(
-		huh.NewGroup(field),
-		huh.NewGroup(pick, add),
-	).WithKeyMap(keys()).Run()
+	groups := []*huh.Group{huh.NewGroup(field)}
+	if withTags {
+		pick, add := tagFields("Tags", env.OS+" is always added", choices, &picked, &extra)
+		groups = append(groups, huh.NewGroup(pick, add))
+	}
+	err = huh.NewForm(groups...).WithKeyMap(keys()).Run()
 	return strings.TrimSpace(path), append(picked, strings.Fields(extra)...), err
 }

@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/charmbracelet/fang"
+	"github.com/charmbracelet/x/term"
 	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/orange-dinosaur/squirrel/internal/menu"
 	"github.com/spf13/cobra"
@@ -85,8 +86,7 @@ func newRootCmd() *cobra.Command {
 }
 
 func stdinIsTerminal() bool {
-	info, err := os.Stdin.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(os.Stdin.Fd()) // a char-device check also passes /dev/null
 }
 
 // Execute runs the squirrel command line. Errors are already printed when it returns.

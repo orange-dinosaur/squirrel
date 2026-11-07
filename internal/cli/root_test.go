@@ -9,7 +9,8 @@ import (
 
 func TestPrintErr(t *testing.T) {
 	for args, want := range map[string]string{
-		"add":         "accepts 1 arg(s), received 0\n  try squirrel add --help\n",
+		"add":         "add needs a path when not run in a terminal\n  try squirrel add --help\n",
+		"add a b":     "accepts between 0 and 1 arg(s), received 2\n  try squirrel add --help\n",
 		"add --bogus": "unknown flag: --bogus\n  try squirrel add --help\n",
 		"bogus":       "unknown command \"bogus\" for \"squirrel\"\n  try squirrel --help\n",
 		"tags rm":     "accepts 1 arg(s), received 0\n  try squirrel tags rm --help\n",

@@ -50,7 +50,7 @@ func Run(a Actions) error {
 		case add:
 			var path string
 			var tags []string
-			if path, tags, err = askAdd(); err == nil {
+			if path, tags, err = AskAdd(true); err == nil {
 				err = a.Add(path, tags)
 			}
 		case apply:
