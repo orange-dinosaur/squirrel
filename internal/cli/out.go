@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
+	"text/tabwriter"
 
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/term"
 	"github.com/orange-dinosaur/squirrel/internal/style"
 	"github.com/spf13/cobra"
 )
@@ -86,6 +90,40 @@ func (l line) badgeWord() (word, target string) {
 		return "error", l.verb
 	}
 	return "note", l.verb
+}
+
+// printTable draws a rounded box with a line between rows, shrunk and wrapped to the terminal
+// when it is too wide. Plain
+// output gets aligned columns under a plain header instead. dimCols are drawn faint.
+func printTable(w io.Writer, headers []string, rows [][]string, dimCols ...int) {
+	if !styled(w) {
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		for _, r := range append([][]string{headers}, rows...) {
+			fmt.Fprintln(tw, strings.Join(r, "\t"))
+		}
+		tw.Flush()
+		return
+	}
+	t := table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderRow(true).
+		BorderStyle(lipgloss.NewStyle().Foreground(style.Overlay())).
+		Headers(headers...).
+		Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			s := lipgloss.NewStyle().Padding(0, 1)
+			switch {
+			case row == table.HeaderRow:
+				return s.Foreground(style.Mauve()).Bold(true)
+			case slices.Contains(dimCols, col):
+				return s.Faint(true)
+			}
+			return s
+		})
+	if cols, _, err := term.GetSize(os.Stdout.Fd()); err == nil && lipgloss.Width(t.String()) > cols {
+		t.Width(cols).Wrap(true)
+	}
+	fmt.Fprintln(w, t)
 }
 
 // printLines prints lines with their badges padded to the widest one. Plain output gets the

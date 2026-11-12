@@ -32,10 +32,21 @@ func TestPrintStatusRowsPlain(t *testing.T) {
 		row("~/.config/git/config", []string{"linux"}, "b7e157db", core.NotLinked),
 		row("~/.vimrc", []string{"macos"}, "0a1b2c3d", core.OtherOS),
 	})
-	want := "TARGET                TAGS         ID\n" +
-		"~/.zshrc              linux shell  562e17c6\n" +
-		"~/.config/git/config  linux        b7e157db  not linked\n" +
-		"~/.vimrc              macos        0a1b2c3d  other OS\n"
+	want := "STATE       TARGET                TAGS         ID\n" +
+		"LINKED      ~/.zshrc              linux shell  562e17c6\n" +
+		"NOT LINKED  ~/.config/git/config  linux        b7e157db\n" +
+		"OTHER OS    ~/.vimrc              macos        0a1b2c3d\n"
+	if got := b.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestPrintTablePlain(t *testing.T) {
+	var b bytes.Buffer
+	printTable(&b, []string{"TAG", "ENTRIES"}, [][]string{{"linux", "12"}, {"shell", "3"}})
+	want := "TAG    ENTRIES\n" +
+		"linux  12\n" +
+		"shell  3\n"
 	if got := b.String(); got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}

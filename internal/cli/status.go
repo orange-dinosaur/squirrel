@@ -1,12 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"slices"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/orange-dinosaur/squirrel/internal/style"
 	"github.com/spf13/cobra"
@@ -53,57 +51,31 @@ func printStatus(w io.Writer, tags []string, all bool) (bool, error) {
 	return !slices.ContainsFunc(rows, func(r core.Row) bool { return !r.OK() }), nil
 }
 
-// printStatusRows prints a header, then one row per Entry: mark, target, Tags, ID, and the state
-// unless it is linked.
+// printStatusRows prints one row per Entry: state, target, Tags and ID.
 func printStatusRows(w io.Writer, rows []core.Row) {
 	color := styled(w)
-	cells := [][3]string{{"TARGET", "TAGS", "ID"}}
+	width := 0
 	for _, r := range rows {
-		cells = append(cells, [3]string{r.Entry.Target, strings.Join(r.Entry.Tags, " "), r.Entry.ID})
+		width = max(width, len(r.State))
 	}
-	var width [3]int
-	for _, c := range cells {
-		for i, s := range c {
-			width[i] = max(width[i], lipgloss.Width(s))
-		}
-	}
-	pad := func(s string, i int) string { return s + strings.Repeat(" ", width[i]-lipgloss.Width(s)) }
-
-	for i, c := range cells {
-		m, state := noop, ""
-		if i > 0 {
-			m, state = statusMark(rows[i-1].State)
-		}
-		target, tags, id := pad(c[0], 0), pad(c[1], 1), c[2]
-		hasState := state != ""
-		if hasState {
-			id = pad(id, 2)
-		}
+	cells := make([][]string, len(rows))
+	for i, r := range rows {
+		state := strings.ToUpper(string(r.State))
 		if color {
-			fg := lipgloss.NewStyle().Foreground(style.Color(m))
-			switch {
-			case i == 0:
-				target, tags, id = "  "+dim.Render(target), dim.Render(tags), dim.Render(id)
-			default:
-				target = fg.Render("●") + " " + target
-				tags, id, state = dim.Render(tags), dim.Render(id), fg.Render(state)
-			}
+			state = style.Badge(statusMark(r.State), state, width)
 		}
-		parts := []string{target, tags, id}
-		if hasState {
-			parts = append(parts, state)
-		}
-		fmt.Fprintln(w, strings.Join(parts, "  "))
+		cells[i] = []string{state, r.Entry.Target, strings.Join(r.Entry.Tags, " "), r.Entry.ID}
 	}
+	printTable(w, []string{"STATE", "TARGET", "TAGS", "ID"}, cells, 2, 3)
 }
 
-// statusMark gives a state its mark, and the word to show beside it. Linked needs no word.
-func statusMark(s core.State) (mark, string) {
+// statusMark gives a state its badge color.
+func statusMark(s core.State) mark {
 	switch s {
 	case core.Linked:
-		return done, ""
+		return done
 	case core.RemovedState, core.OtherOS:
-		return noop, string(s)
+		return noop
 	}
-	return warn, string(s)
+	return warn
 }

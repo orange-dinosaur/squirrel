@@ -124,7 +124,11 @@ func printApply(w io.Writer, env core.Env, plan core.Plan, res core.Result, reso
 		return
 	}
 	printLines(w, lines...)
-	fmt.Fprintln(w, applySummary(len(res.Linked), len(res.Unmanaged), len(res.Skipped)))
+	summary := applySummary(len(res.Linked), len(res.Unmanaged), len(res.Skipped))
+	if styled(w) {
+		summary = dim.Render(summary)
+	}
+	fmt.Fprintln(w, summary)
 }
 
 // applySummary reads like "2 linked · 1 skipped", leaving out zero counts.

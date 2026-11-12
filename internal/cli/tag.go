@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/spf13/cobra"
@@ -130,9 +130,10 @@ func printTags(out io.Writer) error {
 		printLines(out, line{noop, "no Tags", "", nil})
 		return nil
 	}
-	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	for _, tc := range tags {
-		fmt.Fprintf(w, "%s\t%d\n", tc.Tag, tc.Count)
+	rows := make([][]string, len(tags))
+	for i, tc := range tags {
+		rows[i] = []string{tc.Tag, strconv.Itoa(tc.Count)}
 	}
-	return w.Flush()
+	printTable(out, []string{"TAG", "ENTRIES"}, rows)
+	return nil
 }
