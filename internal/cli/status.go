@@ -8,6 +8,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/orange-dinosaur/squirrel/internal/core"
+	"github.com/orange-dinosaur/squirrel/internal/style"
 	"github.com/spf13/cobra"
 )
 
@@ -79,13 +80,13 @@ func printStatusRows(w io.Writer, rows []core.Row) {
 			id = pad(id, 2)
 		}
 		if color {
-			style := marks[m].style
+			fg := lipgloss.NewStyle().Foreground(style.Color(m))
 			switch {
 			case i == 0:
 				target, tags, id = "  "+dim.Render(target), dim.Render(tags), dim.Render(id)
 			default:
-				target = style.Render(marks[m].sym) + " " + target
-				tags, id, state = dim.Render(tags), dim.Render(id), style.Render(state)
+				target = fg.Render("●") + " " + target
+				tags, id, state = dim.Render(tags), dim.Render(id), fg.Render(state)
 			}
 		}
 		parts := []string{target, tags, id}

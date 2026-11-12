@@ -9,31 +9,23 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
+	"github.com/orange-dinosaur/squirrel/internal/style"
 	"github.com/spf13/cobra"
 )
 
-type mark int
+type mark = style.Outcome
 
 const (
-	done mark = iota // it worked
-	noop             // nothing happened, or something went away
-	warn             // worth a look
-	fail             // the command failed
+	done = style.Done
+	noop = style.Noop
+	warn = style.Warn
+	fail = style.Fail
 )
-
-var marks = map[mark]struct {
-	sym   string
-	style lipgloss.Style
-}{
-	done: {"✓", lipgloss.NewStyle().Foreground(lipgloss.Color("2"))},
-	noop: {"−", lipgloss.NewStyle().Faint(true)},
-	warn: {"!", lipgloss.NewStyle().Foreground(lipgloss.Color("3"))},
-	fail: {"✗", lipgloss.NewStyle().Foreground(lipgloss.Color("1"))},
-}
 
 var dim = lipgloss.NewStyle().Faint(true)
 
-// line is one result: "✓ added  ~/.zshrc  562e17c6  linux".
+// line is one result: " ADDED  ~/.zshrc  562e17c6  linux". A line without a target is a note
+// or an error, and its verb is the message: " NOTE  nothing to do".
 type line struct {
 	mark   mark
 	verb   string
@@ -41,7 +33,7 @@ type line struct {
 	extras []string
 }
 
-// styled reports whether w takes color and marks. A pipe, a file, or NO_COLOR gets plain text.
+// styled reports whether w takes color and badges. A pipe, a file, or NO_COLOR gets plain text.
 func styled(w io.Writer) bool {
 	if cw, ok := w.(*colorprofile.Writer); ok {
 		return cw.Profile > colorprofile.ASCII
@@ -64,7 +56,7 @@ func usageError(cmd *cobra.Command, err error) error {
 	return hintError{hint: "try " + cmd.CommandPath() + " --help", err: err}
 }
 
-// printErr prints "✗ message", plus the details and hint of a hintError.
+// printErr prints " ERROR  message", plus the details and hint of a hintError.
 func printErr(w io.Writer, err error) {
 	printLines(w, line{fail, err.Error(), "", nil})
 	hint := ""
@@ -85,26 +77,34 @@ func printErr(w io.Writer, err error) {
 	fmt.Fprintln(w, "  "+hint)
 }
 
-// printLines prints lines with their verbs padded to the widest one.
+// badgeWord splits l into its badge word and what follows it.
+func (l line) badgeWord() (word, target string) {
+	switch {
+	case l.target != "":
+		return l.verb, l.target
+	case l.mark == fail:
+		return "error", l.verb
+	}
+	return "note", l.verb
+}
+
+// printLines prints lines with their badges padded to the widest one. Plain output gets the
+// uppercase word instead of a badge.
 func printLines(w io.Writer, lines ...line) {
 	color := styled(w)
 	width := 0
 	for _, l := range lines {
-		width = max(width, len(l.verb))
+		word, _ := l.badgeWord()
+		width = max(width, lipgloss.Width(word))
 	}
 	for _, l := range lines {
-		verb := l.verb
-		if l.target != "" {
-			verb = fmt.Sprintf("%-*s", width, verb)
-		}
+		word, target := l.badgeWord()
 		if color {
-			m := marks[l.mark]
-			verb = m.style.Render(m.sym + " " + verb)
+			word = style.Badge(l.mark, word, width)
+		} else {
+			word = fmt.Sprintf("%-*s", width, strings.ToUpper(word))
 		}
-		parts := []string{verb}
-		if l.target != "" {
-			parts = append(parts, l.target)
-		}
+		parts := []string{word, target}
 		for _, x := range l.extras {
 			if x == "" {
 				continue

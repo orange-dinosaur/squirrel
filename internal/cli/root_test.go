@@ -9,11 +9,11 @@ import (
 
 func TestPrintErr(t *testing.T) {
 	for args, want := range map[string]string{
-		"add":         "add needs a path when not run in a terminal\n  try squirrel add --help\n",
-		"add a b":     "accepts between 0 and 1 arg(s), received 2\n  try squirrel add --help\n",
-		"add --bogus": "unknown flag: --bogus\n  try squirrel add --help\n",
-		"bogus":       "unknown command \"bogus\" for \"squirrel\"\n  try squirrel --help\n",
-		"tags rm":     "accepts 1 arg(s), received 0\n  try squirrel tags rm --help\n",
+		"add":         "ERROR  add needs a path when not run in a terminal\n  try squirrel add --help\n",
+		"add a b":     "ERROR  accepts between 0 and 1 arg(s), received 2\n  try squirrel add --help\n",
+		"add --bogus": "ERROR  unknown flag: --bogus\n  try squirrel add --help\n",
+		"bogus":       "ERROR  unknown command \"bogus\" for \"squirrel\"\n  try squirrel --help\n",
+		"tags rm":     "ERROR  accepts 1 arg(s), received 0\n  try squirrel tags rm --help\n",
 	} {
 		root := newRootCmd()
 		root.SetArgs(strings.Fields(args))
@@ -27,7 +27,7 @@ func TestPrintErr(t *testing.T) {
 
 	var b bytes.Buffer
 	printErr(&b, errors.New("/nope is not inside HOME"))
-	if want := "/nope is not inside HOME\n"; b.String() != want {
+	if want := "ERROR  /nope is not inside HOME\n"; b.String() != want {
 		t.Errorf("got %q, want %q", b.String(), want)
 	}
 }
