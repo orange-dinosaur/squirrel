@@ -3,6 +3,8 @@ package cli
 import (
 	"errors"
 	"io"
+	"strconv"
+	"strings"
 
 	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/spf13/cobra"
@@ -11,10 +13,64 @@ import (
 func newRemoteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remote",
-		Short: "Connect the Store to a git Remote",
+		Short: "Show how the Store stands against its git Remote, or connect one",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRemote(cmd.OutOrStdout())
+		},
 	}
 	cmd.AddCommand(newRemoteAddCmd())
 	return cmd
+}
+
+func runRemote(w io.Writer) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	s, err := core.RemoteState(env)
+	if errors.Is(err, core.ErrNoRemote) {
+		printLines(w, line{noop, err.Error(), "", nil})
+		return nil
+	}
+	if err != nil && s.URL == "" {
+		return err
+	}
+	status := syncStatus(s)
+	if err != nil {
+		status = "unknown, could not reach the Remote"
+	}
+	rows := [][]string{{"Store", storeName(env)}, {"Status", status}}
+	if len(s.Dirty) > 0 {
+		rows = append(rows, []string{"Not pushed", strings.Join(entryNames(env, s.Dirty), ", ")})
+	}
+	printTable(w, []string{"Remote", s.URL}, rows, 0)
+	return nil
+}
+
+// syncStatus says what push and pull would move, in commits.
+func syncStatus(s core.RemoteStatus) string {
+	var parts []string
+	if s.Ahead > 0 {
+		parts = append(parts, commits(s.Ahead)+" to push")
+	}
+	if s.Behind > 0 {
+		parts = append(parts, commits(s.Behind)+" to pull")
+	}
+	switch {
+	case len(parts) > 0:
+		return strings.Join(parts, ", ")
+	case len(s.Dirty) > 0:
+		return "changes to push"
+	}
+	return "in sync"
+}
+
+func commits(n int) string {
+	if n == 1 {
+		return "1 commit"
+	}
+	return strconv.Itoa(n) + " commits"
 }
 
 func newRemoteAddCmd() *cobra.Command {
