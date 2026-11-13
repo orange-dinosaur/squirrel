@@ -55,8 +55,12 @@ func storeName(env core.Env) string {
 	return env.Store
 }
 
-// dirtyHint names each changed Store path by the Entry it belongs to.
 func dirtyHint(env core.Env, d core.DirtyError) error {
+	return hintError{"run squirrel push, or set them aside with git -C " + storeName(env) + " stash -u", entryNames(env, d.Paths), d}
+}
+
+// entryNames names each Store path by the Entry it belongs to.
+func entryNames(env core.Env, paths []string) []string {
 	targets := map[string]string{}
 	if m, err := core.Load(env.Store); err == nil {
 		for _, e := range m.Entries {
@@ -64,7 +68,7 @@ func dirtyHint(env core.Env, d core.DirtyError) error {
 		}
 	}
 	var details []string
-	for _, p := range d.Paths {
+	for _, p := range paths {
 		id, _, _ := strings.Cut(p, "-")
 		switch {
 		case p == "squirrel.toml":
@@ -75,5 +79,5 @@ func dirtyHint(env core.Env, d core.DirtyError) error {
 			details = append(details, p)
 		}
 	}
-	return hintError{"run squirrel push, or set them aside with git -C " + storeName(env) + " stash -u", details, d}
+	return details
 }
