@@ -16,6 +16,7 @@ const (
 	RemoteCloned                           // the Remote's content came down into an empty Store
 	RemoteConnected                        // both were empty, so nothing moved
 	RemoteUnchanged                        // the Store was already connected to this Remote
+	RemoteRejoined                         // both have content from the same history, so nothing moved
 )
 
 // RemoteAdd connects the Store to the Remote at url. Whichever side has
@@ -49,6 +50,17 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 	if !remoteEmpty {
 		if origin == url {
 			return RemoteUnchanged, nil
+		}
+		if _, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD"); isRepo && noHead == nil &&
+			sharesHistory(store, url) == nil {
+			// Reconnecting after a remove: the Store kept its history.
+			if _, err := git(store, "remote", "add", "origin", url); err != nil {
+				return 0, err
+			}
+			if _, err := git(store, "fetch", "-q", "origin"); err != nil {
+				return 0, err
+			}
+			return RemoteRejoined, nil
 		}
 		if isRepo || !storeEmpty {
 			return 0, errors.New("the Remote already has content, and so does the Store: empty one of them first")
@@ -124,11 +136,8 @@ func RemoteSetURL(env Env, url string) (old, now string, err error) {
 	}
 	_, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD")
 	if refs != "" && noHead == nil {
-		if _, err := git(store, "fetch", "-q", url, "main"); err != nil {
+		if err := sharesHistory(store, url); err != nil {
 			return "", "", err
-		}
-		if _, err := git(store, "merge-base", "HEAD", "FETCH_HEAD"); err != nil {
-			return "", "", errors.New("that Remote holds a different Store: run squirrel remote remove, then squirrel remote add <url>")
 		}
 	}
 	if _, err := git(store, "remote", "set-url", "origin", url); err != nil {
@@ -137,6 +146,21 @@ func RemoteSetURL(env Env, url string) (old, now string, err error) {
 	// Drop refs from the old address. Offline is fine: the next push or pull fetches.
 	git(store, "fetch", "-q", "--prune", "origin")
 	return old, url, nil
+}
+
+// errDifferentStore is returned when a Remote's commits share no history with the Store.
+var errDifferentStore = errors.New("that Remote holds a different Store: run squirrel remote remove, then squirrel remote add <url>")
+
+// sharesHistory fetches main from url without touching origin and fails
+// unless it shares a commit with the Store's HEAD.
+func sharesHistory(store, url string) error {
+	if _, err := git(store, "fetch", "-q", url, "main"); err != nil {
+		return err
+	}
+	if _, err := git(store, "merge-base", "HEAD", "FETCH_HEAD"); err != nil {
+		return errDifferentStore
+	}
+	return nil
 }
 
 // ErrNoRemote is returned by commands that need a Remote when the Store has none.

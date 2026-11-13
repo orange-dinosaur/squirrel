@@ -149,6 +149,8 @@ func runRemoteAdd(w io.Writer, url string, backup, overwrite bool) error {
 		printLines(w, line{done, "pushed", url, []string{"the Store is on the Remote"}})
 	case core.RemoteConnected:
 		printLines(w, line{done, "connected", url, []string{"both empty, nothing to push yet"}})
+	case core.RemoteRejoined:
+		printLines(w, line{done, "connected", url, []string{"same history as the Store, push or pull to catch up"}})
 	case core.RemoteUnchanged:
 		printLines(w, line{noop, "the Store is already connected to " + url, "", nil})
 	case core.RemoteCloned:

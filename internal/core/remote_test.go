@@ -422,6 +422,30 @@ func TestRemoteSetURL(t *testing.T) {
 	}
 }
 
+func TestRemoteAddRejoins(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	url, _ := git(linux.Store, "remote", "get-url", "origin")
+	if _, err := RemoteRemove(linux); err != nil {
+		t.Fatal(err)
+	}
+	pushByHand(t, mac, "00000003-gitconfig", "Mac")
+	if got, err := RemoteAdd(linux, url); got != RemoteRejoined || err != nil {
+		t.Fatalf("RemoteAdd = %v, %v", got, err)
+	}
+	if moved, err := Pull(linux); !moved || err != nil {
+		t.Errorf("catching up: Pull = %v, %v", moved, err)
+	}
+
+	if _, err := RemoteRemove(linux); err != nil {
+		t.Fatal(err)
+	}
+	_, err := RemoteAdd(linux, pushedRemote(t))
+	if err == nil || !strings.Contains(err.Error(), "empty one of them") || HasRemote(linux) {
+		t.Errorf("unrelated: err = %v, connected %v", err, HasRemote(linux))
+	}
+}
+
 func TestGitMissing(t *testing.T) {
 	t.Setenv("PATH", "")
 	if _, err := git("", "version"); err == nil || err.Error() != "git is not installed or not on PATH" {
