@@ -224,6 +224,99 @@ func TestPullIntoEmptyConnectedStore(t *testing.T) {
 	}
 }
 
+func TestPushNoRemote(t *testing.T) {
+	gitTest(t)
+	if _, err := Push(testEnv(t)); err != ErrNoRemote {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestPushNothingToPush(t *testing.T) {
+	gitTest(t)
+	_, linux := twoMachines(t)
+	if got, err := Push(linux); got != (PushResult{}) || err != nil {
+		t.Errorf("Push = %+v, %v", got, err)
+	}
+}
+
+func TestPushLocalChange(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
+	if got, err := Push(linux); got != (PushResult{Pushed: true}) || err != nil {
+		t.Fatalf("Push = %+v, %v", got, err)
+	}
+	if moved, err := Pull(mac); !moved || err != nil {
+		t.Fatalf("Pull = %v, %v", moved, err)
+	}
+	if got := readFile(t, filepath.Join(mac.Store, "00000002-vimrc")); got != "Linux" {
+		t.Errorf("Mac got %q", got)
+	}
+}
+
+func TestPushRebasesOntoRemote(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	pushByHand(t, mac, "00000003-gitconfig", "Mac")
+	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
+	if got, err := Push(linux); got != (PushResult{Pulled: true, Pushed: true}) || err != nil {
+		t.Fatalf("Push = %+v, %v", got, err)
+	}
+	if got := readFile(t, filepath.Join(linux.Store, "00000003-gitconfig")); got != "Mac" {
+		t.Errorf("Linux got %q", got)
+	}
+	files, _ := git(linux.Store, "ls-tree", "--name-only", "origin/main")
+	if files != "00000002-vimrc\n00000003-gitconfig\nsquirrel.toml" {
+		t.Errorf("Remote holds %q", files)
+	}
+}
+
+func TestPushClash(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	pushByHand(t, mac, "squirrel.toml", "# Mac\n")
+	write(t, filepath.Join(linux.Store, "squirrel.toml"), "# Linux\n")
+	got, err := Push(linux)
+	c, ok := err.(ClashError)
+	if !ok || strings.Join(c.Paths, ",") != "squirrel.toml" || got != (PushResult{}) {
+		t.Fatalf("Push = %+v, %#v", got, err)
+	}
+	if got := readFile(t, filepath.Join(linux.Store, "squirrel.toml")); got != "# Linux\n" {
+		t.Errorf("clash changed the Store: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(linux.Store, ".git", "rebase-merge")); err == nil {
+		t.Error("rebase left in progress")
+	}
+}
+
+func TestPushFirstToEmptyRemote(t *testing.T) {
+	gitTest(t)
+	env, url := testEnv(t), bareRemote(t)
+	if got, err := RemoteAdd(env, url); got != RemoteConnected || err != nil {
+		t.Fatalf("connect: %v, %v", got, err)
+	}
+	write(t, filepath.Join(env.Store, "squirrel.toml"), "# first\n")
+	if got, err := Push(env); got != (PushResult{Pushed: true}) || err != nil {
+		t.Fatalf("Push = %+v, %v", got, err)
+	}
+	if files, _ := git(url, "ls-tree", "--name-only", "main"); files != "squirrel.toml" {
+		t.Errorf("Remote holds %q", files)
+	}
+}
+
+func TestPushNoIdentity(t *testing.T) {
+	gitTest(t)
+	_, linux := twoMachines(t)
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	write(t, cfg, "[user]\n\tuseConfigOnly = true\n")
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
+	_, err := Push(linux)
+	if err == nil || !strings.HasPrefix(err.Error(), "git has no name or email: run git config --global user.name") {
+		t.Errorf("err = %v", err)
+	}
+}
+
 func TestGitMissing(t *testing.T) {
 	t.Setenv("PATH", "")
 	if _, err := git("", "version"); err == nil || err.Error() != "git is not installed or not on PATH" {

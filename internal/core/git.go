@@ -53,5 +53,8 @@ func commitAll(store string) (bool, error) {
 		return false, err
 	}
 	_, err = git(store, "commit", "-q", "-m", "push from "+host)
+	if err != nil && strings.Contains(err.Error(), "Please tell me who you are") {
+		err = errors.New(`git has no name or email: run git config --global user.name "Your Name" and git config --global user.email "you@example.com"`)
+	}
 	return err == nil, err
 }

@@ -156,6 +156,70 @@ func Pull(env Env) (bool, error) {
 	return true, nil
 }
 
+// ClashError lists the Store paths that both the Store and the Remote changed.
+type ClashError struct{ Paths []string }
+
+func (e ClashError) Error() string {
+	return "the Store and the Remote changed the same files"
+}
+
+// PushResult says what Push did.
+type PushResult struct {
+	Pulled bool // the Remote had commits the Store lacked, and the Store took them in
+	Pushed bool // the Store's commits went up to the Remote
+}
+
+// Push commits the Store's changes, rebases them onto the Remote, and pushes.
+// On a clash it aborts the rebase and returns a ClashError.
+func Push(env Env) (PushResult, error) {
+	var res PushResult
+	store := env.Store
+	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
+		return res, ErrNoRemote
+	}
+	if err := requireRemote(store); err != nil {
+		return res, err
+	}
+	if _, err := commitAll(store); err != nil {
+		return res, err
+	}
+	if _, err := git(store, "rev-parse", "--verify", "-q", "HEAD"); err != nil {
+		return res, nil // nothing was ever committed
+	}
+	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
+		return res, err
+	}
+	ahead := "HEAD"
+	if _, err := git(store, "rev-parse", "--verify", "-q", "origin/main"); err == nil {
+		ahead = "origin/main..HEAD"
+		behind, err := git(store, "rev-list", "--count", "HEAD..origin/main")
+		if err != nil {
+			return res, err
+		}
+		if behind != "0" {
+			if _, err := git(store, "rebase", "-q", "origin/main"); err != nil {
+				clashes, _ := git(store, "diff", "--name-only", "--diff-filter=U")
+				if _, abortErr := git(store, "rebase", "--abort"); abortErr != nil {
+					return res, abortErr
+				}
+				if clashes == "" {
+					return res, err
+				}
+				return res, ClashError{strings.Split(clashes, "\n")}
+			}
+			res.Pulled = true
+		}
+	}
+	if n, err := git(store, "rev-list", "--count", ahead); err != nil || n == "0" {
+		return res, err
+	}
+	if _, err := git(store, "push", "-q", "-u", "origin", "HEAD:main"); err != nil {
+		return res, err
+	}
+	res.Pushed = true
+	return res, nil
+}
+
 // isEmptyDir reports whether dir is missing or holds nothing besides .git.
 func isEmptyDir(dir string) (bool, error) {
 	entries, err := os.ReadDir(dir)
