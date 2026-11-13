@@ -2,6 +2,7 @@ package menu
 
 import (
 	"errors"
+	"io"
 	"slices"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 
 // browse lists the Entries, offers Change tags or Remove on the one picked,
 // and comes back to the list until Esc.
-func browse(a Actions) error {
+func browse(a Actions, w io.Writer) error {
 	env, err := core.LoadEnv()
 	if err != nil {
 		return err
@@ -53,19 +54,19 @@ func browse(a Actions) error {
 		case action == changeTags:
 			var tags []string
 			if tags, err = askTags(m, e); err == nil {
-				err = a.SetTags(id, tags)
+				err = a.SetTags(w, id, tags)
 			}
 		case action == remove:
 			var ok bool
 			if ok, err = askRemove(env, e); err == nil && ok {
 				next := neighbour(env, m, id, all)
-				if err = a.Remove(id); err == nil {
+				if err = a.Remove(w, id); err == nil {
 					id = next
 				}
 			}
 		}
 		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
-			a.Error(err)
+			a.Error(w, err)
 		}
 	}
 }

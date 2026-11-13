@@ -37,27 +37,25 @@ func newRootCmd() *cobra.Command {
 				return cmd.Help()
 			}
 			return menu.Run(menu.Actions{
-				Add: func(path string, tags []string) error { return runAdd(os.Stdout, path, tags) },
-				Apply: func(tags []string) error {
+				Add: runAdd,
+				Apply: func(w io.Writer, tags []string) error {
 					// Quit at a Conflict and a partial apply have already printed why.
-					if err := runApply(os.Stdout, tags, false, false); !errors.Is(err, errQuiet) {
+					if err := runApply(w, tags, false, false); !errors.Is(err, errQuiet) {
 						return err
 					}
 					return nil
 				},
-				Status: func() error {
-					_, err := printStatus(os.Stdout, nil, false)
+				Status: func(w io.Writer) error {
+					_, err := printStatus(w, nil, false)
 					return err
 				},
-				Remove:  func(id string) error { return runRemove(os.Stdout, id) },
-				SetTags: func(id string, tags []string) error { return runSetTags(os.Stdout, id, tags) },
-				Tags:    func() error { return printTags(os.Stdout) },
-				DeleteTag: func(tag string, untag bool) error {
-					return runDeleteTag(os.Stdout, tag, untag)
-				},
-				Purge: func(ids []string) error { return runPurge(os.Stdout, ids, true) },
-				Note:  func(msg string) { printLines(os.Stdout, line{noop, msg, "", nil}) },
-				Error: func(err error) { printErr(os.Stderr, err) },
+				Remove:    runRemove,
+				SetTags:   runSetTags,
+				Tags:      printTags,
+				DeleteTag: runDeleteTag,
+				Purge:     func(w io.Writer, ids []string) error { return runPurge(w, ids, true) },
+				Note:      func(w io.Writer, msg string) { printLines(w, line{noop, msg, "", nil}) },
+				Error:     printErr,
 			})
 		},
 	}
