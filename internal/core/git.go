@@ -9,8 +9,10 @@ import (
 	"strings"
 )
 
+var errNoGit = errors.New("git is not installed or not on PATH")
+
 // git runs git in dir, or in the current directory when dir is empty, and
-// returns its trimmed stdout. A failure carries git's own message.
+// returns its stdout without the final newline. A failure carries git's own message.
 func git(dir string, args ...string) (string, error) {
 	sub := args[0]
 	if dir != "" {
@@ -21,7 +23,7 @@ func git(dir string, args ...string) (string, error) {
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	err := cmd.Run()
 	if errors.Is(err, exec.ErrNotFound) {
-		return "", errors.New("git is not installed or not on PATH")
+		return "", errNoGit
 	}
 	if err != nil {
 		msg := strings.TrimSpace(errOut.String())
@@ -33,7 +35,7 @@ func git(dir string, args ...string) (string, error) {
 		}
 		return "", fmt.Errorf("git %s failed: %s", sub, msg)
 	}
-	return strings.TrimSpace(out.String()), nil
+	return strings.TrimRight(out.String(), "\n"), nil // leading spaces matter in status --porcelain
 }
 
 // commitAll commits every change in the Store as "push from <hostname>".

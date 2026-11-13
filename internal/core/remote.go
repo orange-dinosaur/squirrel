@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // RemoteAddResult says what connecting a Remote did.
@@ -85,6 +86,74 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 		return 0, err
 	}
 	return RemotePushed, nil
+}
+
+// ErrNoRemote is returned by commands that need a Remote when the Store has none.
+var ErrNoRemote = errors.New("the Store has no Remote: run squirrel remote add <url> first")
+
+// DirtyError lists the Store paths that changed since the last commit.
+type DirtyError struct{ Paths []string }
+
+func (e DirtyError) Error() string {
+	return "the Store has changes that are not pushed: push them, or discard them with git in the Store"
+}
+
+// requireRemote fails with ErrNoRemote unless the Store is a git repo with an origin.
+func requireRemote(store string) error {
+	if _, err := git(store, "remote", "get-url", "origin"); err != nil {
+		if errors.Is(err, errNoGit) {
+			return err
+		}
+		return ErrNoRemote
+	}
+	return nil
+}
+
+// Pull fast-forwards the Store to the Remote. It refuses when the Store has
+// changes of its own, and never merges. It reports whether the Store moved.
+func Pull(env Env) (bool, error) {
+	store := env.Store
+	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
+		return false, ErrNoRemote
+	}
+	if err := requireRemote(store); err != nil {
+		return false, err
+	}
+	status, err := git(store, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	if status != "" {
+		var paths []string
+		for _, l := range strings.Split(status, "\n") {
+			paths = append(paths, l[3:])
+		}
+		return false, DirtyError{paths}
+	}
+	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
+		return false, err
+	}
+	if _, err := git(store, "rev-parse", "--verify", "-q", "origin/main"); err != nil {
+		return false, nil // the Remote is still empty
+	}
+	if _, err := git(store, "rev-parse", "--verify", "-q", "HEAD"); err == nil {
+		counts, err := git(store, "rev-list", "--left-right", "--count", "HEAD...origin/main")
+		if err != nil {
+			return false, err
+		}
+		var ahead, behind int
+		fmt.Sscan(counts, &ahead, &behind)
+		if behind == 0 {
+			return false, nil
+		}
+		if ahead > 0 {
+			return false, errors.New("the Store and the Remote have both changed: run squirrel push to combine them")
+		}
+	}
+	if _, err := git(store, "merge", "-q", "--ff-only", "origin/main"); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // isEmptyDir reports whether dir is missing or holds nothing besides .git.
