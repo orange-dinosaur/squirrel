@@ -32,6 +32,6 @@ func askApply() ([]string, error) {
 			Options(huh.NewOptions(choices...)...).
 			Height(min(len(choices), 10) + 2).
 			Value(&picked),
-	)).WithKeyMap(keys()).Run()
+	)).WithKeyMap(keys()).WithTheme(theme).Run()
 	return picked, err
 }

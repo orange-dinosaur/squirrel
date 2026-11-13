@@ -47,7 +47,7 @@ func askPurge() ([]string, string, error) {
 				Description("A machine that hasn't caught up keeps a broken Link.").
 				Value(&ok),
 		).WithHideFunc(func() bool { return len(ids) == 0 }),
-	).WithKeyMap(keys()).Run()
+	).WithKeyMap(keys()).WithTheme(theme).Run()
 	if err != nil {
 		return nil, "", err
 	}

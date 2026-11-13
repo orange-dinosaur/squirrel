@@ -35,7 +35,7 @@ func askDeleteTag() (tag string, untag bool, note string, err error) {
 			Title("Delete a tag").
 			Options(opts...).
 			Value(&tag),
-	)).WithKeyMap(keys()).Run()
+	)).WithKeyMap(keys()).WithTheme(theme).Run()
 	if err != nil {
 		return "", false, "", err
 	}
@@ -52,7 +52,7 @@ func askDeleteTag() (tag string, untag bool, note string, err error) {
 		huh.NewConfirm().
 			Title(fmt.Sprintf("%s is on %d %s. Untag them and delete?", tag, n, entries)).
 			Value(&untag),
-	)).WithKeyMap(keys()).Run()
+	)).WithKeyMap(keys()).WithTheme(theme).Run()
 	if err == nil && !untag {
 		return "", false, "nothing changed", nil
 	}

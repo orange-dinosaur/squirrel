@@ -46,7 +46,7 @@ func browse(a Actions) error {
 					huh.NewOption("Back", back),
 				).
 				Value(&action),
-		)).WithKeyMap(keys()).Run()
+		)).WithKeyMap(keys()).WithTheme(theme).Run()
 		switch {
 		case err != nil || action == back:
 			err = nil // Esc here goes back to the list, not the main menu
@@ -125,7 +125,7 @@ func pickEntry(env core.Env, m *core.Manifest, start string, all bool) (string, 
 				Title("Browse Entries").
 				Options(opts...).
 				Value(&id),
-		)).WithKeyMap(keys()).Run()
+		)).WithKeyMap(keys()).WithTheme(theme).Run()
 		if err != nil || id != showAll {
 			return id, all, err
 		}

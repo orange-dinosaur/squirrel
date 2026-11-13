@@ -17,6 +17,6 @@ func askRemove(env core.Env, e core.Entry) (bool, error) {
 			Title("Unmanage " + e.Target + "?").
 			Description(desc).
 			Value(&ok),
-	)).WithKeyMap(keys()).Run()
+	)).WithKeyMap(keys()).WithTheme(theme).Run()
 	return ok, err
 }

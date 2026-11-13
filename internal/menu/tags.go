@@ -15,7 +15,7 @@ func askTags(m *core.Manifest, e core.Entry) ([]string, error) {
 	picked := slices.Clone(e.Tags)
 	var extra string
 	pick, add := tagFields("Tags for "+e.Target, "", tagChoices(m), &picked, &extra)
-	err := huh.NewForm(huh.NewGroup(pick, add)).WithKeyMap(keys()).Run()
+	err := huh.NewForm(huh.NewGroup(pick, add)).WithKeyMap(keys()).WithTheme(theme).Run()
 	return append(picked, strings.Fields(extra)...), err
 }
 

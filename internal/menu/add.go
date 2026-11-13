@@ -34,7 +34,7 @@ func AskAdd(withTags bool) (string, []string, error) {
 				huh.NewOption("Type a path", "type"),
 			).
 			Value(&how),
-	)).WithKeyMap(keys()).Run()
+	)).WithKeyMap(keys()).WithTheme(theme).Run()
 	if err != nil {
 		return "", nil, err
 	}
@@ -133,6 +133,6 @@ func AskAdd(withTags bool) (string, []string, error) {
 		pick, add := tagFields("Tags", env.OS+" is always added", choices, &picked, &extra)
 		groups = append(groups, huh.NewGroup(pick, add))
 	}
-	err = huh.NewForm(groups...).WithKeyMap(keys()).Run()
+	err = huh.NewForm(groups...).WithKeyMap(keys()).WithTheme(theme).Run()
 	return strings.TrimSpace(path), append(picked, strings.Fields(extra)...), err
 }

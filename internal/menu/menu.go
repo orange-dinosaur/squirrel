@@ -7,6 +7,8 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/huh/v2"
+
+	"github.com/orange-dinosaur/squirrel/internal/style"
 )
 
 // Actions are the commands the menu runs. Each prints its own output.
@@ -39,6 +41,8 @@ const (
 // Run shows the menu until Quit, Esc or Ctrl+C. An action's error is printed
 // and the menu comes back. Esc inside an action's form also comes back.
 func Run(a Actions) error {
+	// Ask the terminal now: once a form owns stdin, the reply would race its keys.
+	style.Dark()
 	for {
 		choice, err := pick()
 		if errors.Is(err, huh.ErrUserAborted) || choice == quit {
@@ -93,6 +97,10 @@ func Run(a Actions) error {
 	}
 }
 
+// theme follows squirrel's dark/light decision rather than huh's, which assumes light when the
+// terminal does not answer.
+var theme = huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCatppuccin(style.Dark()) })
+
 // keys lets Esc leave a form, as well as Ctrl+C.
 func keys() *huh.KeyMap {
 	k := huh.NewDefaultKeyMap()
@@ -120,6 +128,6 @@ func pick() (item, error) {
 			Title("What do you want to do?").
 			Options(append(opts, huh.NewOption("Quit", quit))...).
 			Value(&choice),
-	)).WithKeyMap(keys()).Run()
+	)).WithKeyMap(keys()).WithTheme(theme).Run()
 	return choice, err
 }
