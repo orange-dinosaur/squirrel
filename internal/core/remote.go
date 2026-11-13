@@ -98,36 +98,93 @@ func (e DirtyError) Error() string {
 	return "the Store has changes that are not pushed"
 }
 
-// requireRemote fails with ErrNoRemote unless the Store is a git repo with an origin.
-func requireRemote(store string) error {
-	if _, err := git(store, "remote", "get-url", "origin"); err != nil {
-		if errors.Is(err, errNoGit) {
-			return err
-		}
-		return ErrNoRemote
+// requireRemote returns the Remote's URL, or ErrNoRemote unless the Store is
+// a git repo with an origin. The .git check stops git from finding a repo
+// above the Store.
+func requireRemote(store string) (string, error) {
+	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
+		return "", ErrNoRemote
 	}
-	return nil
+	url, err := git(store, "remote", "get-url", "origin")
+	if errors.Is(err, errNoGit) {
+		return "", err
+	}
+	if err != nil {
+		return "", ErrNoRemote
+	}
+	return url, nil
+}
+
+// HasRemote reports whether the Store is connected to a Remote, without
+// touching the network.
+func HasRemote(env Env) bool {
+	_, err := requireRemote(env.Store)
+	return err == nil
+}
+
+// dirtyPaths lists the Store paths that changed since the last commit.
+func dirtyPaths(store string) ([]string, error) {
+	status, err := git(store, "status", "--porcelain")
+	if err != nil || status == "" {
+		return nil, err
+	}
+	var paths []string
+	for _, l := range strings.Split(status, "\n") {
+		paths = append(paths, l[3:])
+	}
+	return paths, nil
+}
+
+// RemoteStatus is how the Store stands against its Remote.
+type RemoteStatus struct {
+	URL           string
+	Ahead, Behind int      // commits only the Store has, and only the Remote has
+	Dirty         []string // Store paths changed since the last commit
+}
+
+// RemoteState fetches and compares the Store with its Remote.
+func RemoteState(env Env) (RemoteStatus, error) {
+	var s RemoteStatus
+	store := env.Store
+	url, err := requireRemote(store)
+	if err != nil {
+		return s, err
+	}
+	s.URL = url
+	if s.Dirty, err = dirtyPaths(store); err != nil {
+		return s, err
+	}
+	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
+		return s, err
+	}
+	_, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD")
+	_, noRemote := git(store, "rev-parse", "--verify", "-q", "origin/main")
+	var counts string
+	switch {
+	case noHead == nil && noRemote == nil:
+		counts, err = git(store, "rev-list", "--left-right", "--count", "HEAD...origin/main")
+	case noHead == nil:
+		counts, err = git(store, "rev-list", "--count", "HEAD")
+	case noRemote == nil:
+		counts, err = git(store, "rev-list", "--count", "origin/main")
+		counts = "0 " + counts
+	}
+	fmt.Sscan(counts, &s.Ahead, &s.Behind)
+	return s, err
 }
 
 // Pull fast-forwards the Store to the Remote. It refuses when the Store has
 // changes of its own, and never merges. It reports whether the Store moved.
 func Pull(env Env) (bool, error) {
 	store := env.Store
-	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
-		return false, ErrNoRemote
-	}
-	if err := requireRemote(store); err != nil {
+	if _, err := requireRemote(store); err != nil {
 		return false, err
 	}
-	status, err := git(store, "status", "--porcelain")
+	paths, err := dirtyPaths(store)
 	if err != nil {
 		return false, err
 	}
-	if status != "" {
-		var paths []string
-		for _, l := range strings.Split(status, "\n") {
-			paths = append(paths, l[3:])
-		}
+	if paths != nil {
 		return false, DirtyError{paths}
 	}
 	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
@@ -174,10 +231,7 @@ type PushResult struct {
 func Push(env Env) (PushResult, error) {
 	var res PushResult
 	store := env.Store
-	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
-		return res, ErrNoRemote
-	}
-	if err := requireRemote(store); err != nil {
+	if _, err := requireRemote(store); err != nil {
 		return res, err
 	}
 	if _, err := commitAll(store); err != nil {

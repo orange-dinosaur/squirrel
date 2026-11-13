@@ -317,6 +317,62 @@ func TestPushNoIdentity(t *testing.T) {
 	}
 }
 
+func TestRemoteStateNoRemote(t *testing.T) {
+	gitTest(t)
+	env := testEnv(t)
+	if HasRemote(env) {
+		t.Error("HasRemote with no Store")
+	}
+	if _, err := RemoteState(env); err != ErrNoRemote {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestRemoteState(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	url, _ := git(linux.Store, "remote", "get-url", "origin")
+	check := func(name string, want RemoteStatus) {
+		t.Helper()
+		want.URL = url
+		got, err := RemoteState(linux)
+		if err != nil || got.URL != want.URL || got.Ahead != want.Ahead || got.Behind != want.Behind ||
+			strings.Join(got.Dirty, ",") != strings.Join(want.Dirty, ",") {
+			t.Errorf("%s: RemoteState = %+v, %v, want %+v", name, got, err, want)
+		}
+	}
+	if !HasRemote(linux) {
+		t.Fatal("HasRemote = false")
+	}
+	check("in sync", RemoteStatus{})
+	pushByHand(t, mac, "00000003-gitconfig", "Mac")
+	check("behind", RemoteStatus{Behind: 1})
+	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
+	check("behind and dirty", RemoteStatus{Behind: 1, Dirty: []string{"00000002-vimrc"}})
+	if _, err := commitAll(linux.Store); err != nil {
+		t.Fatal(err)
+	}
+	check("ahead and behind", RemoteStatus{Ahead: 1, Behind: 1})
+}
+
+func TestRemoteStateEmptyRemote(t *testing.T) {
+	gitTest(t)
+	env, url := testEnv(t), bareRemote(t)
+	if _, err := RemoteAdd(env, url); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := RemoteState(env); got.Ahead != 0 || got.Behind != 0 || err != nil {
+		t.Errorf("both empty: %+v, %v", got, err)
+	}
+	write(t, filepath.Join(env.Store, "squirrel.toml"), "# x\n")
+	if _, err := commitAll(env.Store); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := RemoteState(env); got.Ahead != 1 || err != nil {
+		t.Errorf("committed, not pushed: %+v, %v", got, err)
+	}
+}
+
 func TestGitMissing(t *testing.T) {
 	t.Setenv("PATH", "")
 	if _, err := git("", "version"); err == nil || err.Error() != "git is not installed or not on PATH" {
