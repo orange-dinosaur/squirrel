@@ -96,7 +96,8 @@ func Execute(ctx context.Context) error {
 		printErr(os.Stderr, err)
 		return err
 	}
-	return fang.Execute(ctx, newRootCmd(), fang.WithErrorHandler(printError))
+	return fang.Execute(ctx, newRootCmd(), fang.WithErrorHandler(printError),
+		fang.WithColorSchemeFunc(helpColors))
 }
 
 func printError(w io.Writer, _ fang.Styles, err error) {
