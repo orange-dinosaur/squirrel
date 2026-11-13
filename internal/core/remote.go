@@ -21,6 +21,12 @@ const (
 // content fills the other. It refuses when both do.
 func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 	store := env.Store
+	if _, err := os.Stat(url); err == nil {
+		// A local path is stored as-is in the Store's git config, so it must not be relative.
+		if url, err = filepath.Abs(url); err != nil {
+			return 0, err
+		}
+	}
 	_, statErr := os.Stat(filepath.Join(store, ".git"))
 	isRepo := statErr == nil
 	origin := ""
