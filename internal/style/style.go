@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	catppuccin "github.com/catppuccin/go"
 	"github.com/charmbracelet/x/term"
+	"github.com/orange-dinosaur/squirrel/internal/core"
 )
 
 // Outcome is what a result line or state means for the user.
@@ -59,6 +60,17 @@ func Color(o Outcome) color.Color {
 		return Red()
 	}
 	return Overlay()
+}
+
+// StateOutcome gives an Entry's state its badge color.
+func StateOutcome(s core.State) Outcome {
+	switch s {
+	case core.Linked:
+		return Done
+	case core.RemovedState, core.OtherOS:
+		return Noop
+	}
+	return Warn
 }
 
 // Badge renders word in uppercase on its outcome's color, padded to width cells plus one space

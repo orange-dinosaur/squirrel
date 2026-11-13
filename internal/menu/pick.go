@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/orange-dinosaur/squirrel/internal/core"
+	"github.com/orange-dinosaur/squirrel/internal/style"
 )
 
 // browse lists the Entries, offers Change tags or Remove on the one picked,
@@ -71,6 +73,35 @@ func browse(a Actions, w io.Writer) error {
 	}
 }
 
+// columns joins each row's cells two spaces apart, padding every column but the last to its
+// widest cell. Widths ignore ANSI codes, so badges line up.
+func columns(rows [][]string) []string {
+	var widths []int
+	for _, r := range rows {
+		for i, c := range r {
+			if i == len(widths) {
+				widths = append(widths, 0)
+			}
+			widths[i] = max(widths[i], lipgloss.Width(c))
+		}
+	}
+	out := make([]string, len(rows))
+	for i, r := range rows {
+		var b strings.Builder
+		for j, c := range r {
+			if j > 0 {
+				b.WriteString("  ")
+			}
+			b.WriteString(c)
+			if j < len(r)-1 {
+				b.WriteString(strings.Repeat(" ", widths[j]-lipgloss.Width(c)))
+			}
+		}
+		out[i] = strings.TrimRight(b.String(), " ")
+	}
+	return out
+}
+
 // listed reports whether pickEntry shows e.
 func listed(env core.Env, e core.Entry, all bool) bool {
 	return !e.Removed && (all || e.AppliesOn(env.OS))
@@ -105,14 +136,23 @@ func pickEntry(env core.Env, m *core.Manifest, start string, all bool) (string, 
 		if !all {
 			opts = append(opts, huh.NewOption("Show Entries for other OSes", showAll))
 		}
-		for _, e := range m.Entries {
-			if !listed(env, e, all) {
-				continue
-			}
-			if !found && e.ID == start {
-				found = true
-			}
-			opts = append(opts, huh.NewOption(e.Target+"  "+strings.Join(e.Tags, " "), e.ID))
+		rows, err := core.Status(env, m, nil, all)
+		if err != nil {
+			return "", all, err
+		}
+		rows = slices.DeleteFunc(rows, func(r core.Row) bool { return !listed(env, r.Entry, all) })
+		width := 0
+		for _, r := range rows {
+			width = max(width, len(r.State))
+		}
+		cells := make([][]string, len(rows))
+		for i, r := range rows {
+			found = found || r.Entry.ID == start
+			badge := style.Badge(style.StateOutcome(r.State), string(r.State), width)
+			cells[i] = []string{badge, r.Entry.Target, strings.Join(r.Entry.Tags, " ")}
+		}
+		for i, label := range columns(cells) {
+			opts = append(opts, huh.NewOption(label, rows[i].Entry.ID))
 		}
 		if !found {
 			id = opts[0].Value
@@ -121,7 +161,7 @@ func pickEntry(env core.Env, m *core.Manifest, start string, all bool) (string, 
 			}
 		}
 
-		err := huh.NewForm(huh.NewGroup(
+		err = huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Browse Entries").
 				Options(opts...).

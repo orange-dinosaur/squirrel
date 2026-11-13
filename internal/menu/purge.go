@@ -19,13 +19,17 @@ func askPurge() ([]string, string, error) {
 		return nil, "", err
 	}
 
-	var opts []huh.Option[string]
+	var cells [][]string
 	var ids []string
 	for _, e := range m.Entries {
 		if e.Removed {
-			opts = append(opts, huh.NewOption(e.Target+"  "+e.ID+"  "+strings.Join(e.Tags, " "), e.ID).Selected(true))
+			cells = append(cells, []string{e.Target, e.ID, strings.Join(e.Tags, " ")})
 			ids = append(ids, e.ID)
 		}
+	}
+	var opts []huh.Option[string]
+	for i, label := range columns(cells) {
+		opts = append(opts, huh.NewOption(label, ids[i]).Selected(true))
 	}
 	if len(ids) == 0 {
 		return nil, "no removed Entries to purge", nil

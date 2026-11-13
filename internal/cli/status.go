@@ -62,20 +62,9 @@ func printStatusRows(w io.Writer, rows []core.Row) {
 	for i, r := range rows {
 		state := strings.ToUpper(string(r.State))
 		if color {
-			state = style.Badge(statusMark(r.State), state, width)
+			state = style.Badge(style.StateOutcome(r.State), state, width)
 		}
 		cells[i] = []string{state, r.Entry.Target, strings.Join(r.Entry.Tags, " "), r.Entry.ID}
 	}
 	printTable(w, []string{"STATE", "TARGET", "TAGS", "ID"}, cells, 2, 3)
-}
-
-// statusMark gives a state its badge color.
-func statusMark(s core.State) mark {
-	switch s {
-	case core.Linked:
-		return done
-	case core.RemovedState, core.OtherOS:
-		return noop
-	}
-	return warn
 }
