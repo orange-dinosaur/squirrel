@@ -52,11 +52,7 @@ func runRemoteAdd(w io.Writer, url string, backup, overwrite bool) error {
 	case core.RemoteUnchanged:
 		printLines(w, line{noop, "the Store is already connected to " + url, "", nil})
 	case core.RemoteCloned:
-		store, ok := env.Contract(env.Store)
-		if !ok {
-			store = env.Store
-		}
-		printLines(w, line{done, "cloned", url, []string{"into " + store}})
+		printLines(w, line{done, "cloned", url, []string{"into " + storeName(env)}})
 		return runApply(w, nil, backup, overwrite)
 	}
 	return nil

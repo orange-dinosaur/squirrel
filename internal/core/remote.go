@@ -95,7 +95,7 @@ var ErrNoRemote = errors.New("the Store has no Remote: run squirrel remote add <
 type DirtyError struct{ Paths []string }
 
 func (e DirtyError) Error() string {
-	return "the Store has changes that are not pushed: push them, or discard them with git in the Store"
+	return "the Store has changes that are not pushed"
 }
 
 // requireRemote fails with ErrNoRemote unless the Store is a git repo with an origin.

@@ -62,7 +62,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newAddCmd(), newStatusCmd(), newApplyCmd(), newRemoveCmd(), newPurgeCmd(),
 		newRetagCmd("tag", "Add Tags to an Entry", core.Tag, completeNewTags),
 		newRetagCmd("untag", "Drop Tags from an Entry", core.Untag, completeEntryTags),
-		newTagsCmd(), newRemoteCmd())
+		newTagsCmd(), newRemoteCmd(), newPullCmd())
 
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
 		return usageError(c, err)
