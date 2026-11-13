@@ -19,8 +19,52 @@ func newRemoteCmd() *cobra.Command {
 			return runRemote(cmd.OutOrStdout())
 		},
 	}
-	cmd.AddCommand(newRemoteAddCmd())
+	cmd.AddCommand(newRemoteAddCmd(), &cobra.Command{
+		Use:   "remove",
+		Short: "Disconnect the Store from its Remote, keeping the Store and its links",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRemoteRemove(cmd.OutOrStdout())
+		},
+	}, &cobra.Command{
+		Use:   "set-url <url>",
+		Short: "Point the Store at a new address for the same Remote",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRemoteSetURL(cmd.OutOrStdout(), args[0])
+		},
+	})
 	return cmd
+}
+
+func runRemoteRemove(w io.Writer) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	url, err := core.RemoteRemove(env)
+	if err != nil {
+		return err
+	}
+	printLines(w, line{done, "disconnected", url, []string{"the Store and its links stay"}})
+	return nil
+}
+
+func runRemoteSetURL(w io.Writer, url string) error {
+	env, err := core.LoadEnv()
+	if err != nil {
+		return err
+	}
+	old, url, err := core.RemoteSetURL(env, url)
+	if err != nil {
+		return err
+	}
+	if old == url {
+		printLines(w, line{noop, "the Store is already connected to " + url, "", nil})
+		return nil
+	}
+	printLines(w, line{done, "connected", url, []string{"was " + old}})
+	return nil
 }
 
 func runRemote(w io.Writer) error {

@@ -373,6 +373,55 @@ func TestRemoteStateEmptyRemote(t *testing.T) {
 	}
 }
 
+func TestRemoteRemove(t *testing.T) {
+	gitTest(t)
+	if _, err := RemoteRemove(testEnv(t)); err != ErrNoRemote {
+		t.Errorf("no Remote: err = %v", err)
+	}
+	_, linux := twoMachines(t)
+	want, _ := git(linux.Store, "remote", "get-url", "origin")
+	if url, err := RemoteRemove(linux); url != want || err != nil {
+		t.Fatalf("RemoteRemove = %q, %v", url, err)
+	}
+	if HasRemote(linux) {
+		t.Error("still connected")
+	}
+	if got := readFile(t, filepath.Join(linux.Store, "squirrel.toml")); got != "# v1\n" {
+		t.Errorf("Store after remove %q", got)
+	}
+}
+
+func TestRemoteSetURL(t *testing.T) {
+	gitTest(t)
+	if _, _, err := RemoteSetURL(testEnv(t), bareRemote(t)); err != ErrNoRemote {
+		t.Errorf("no Remote: err = %v", err)
+	}
+	_, linux := twoMachines(t)
+	old, _ := git(linux.Store, "remote", "get-url", "origin")
+	origin := func() string { u, _ := git(linux.Store, "remote", "get-url", "origin"); return u }
+
+	_, _, err := RemoteSetURL(linux, pushedRemote(t))
+	if err == nil || !strings.Contains(err.Error(), "different Store") || origin() != old {
+		t.Errorf("unrelated: err = %v, origin %s", err, origin())
+	}
+
+	moved := filepath.Join(t.TempDir(), "moved.git")
+	if _, err := git("", "clone", "-q", "--bare", old, moved); err != nil {
+		t.Fatal(err)
+	}
+	if was, now, err := RemoteSetURL(linux, moved); was != old || now != moved || err != nil || origin() != moved {
+		t.Errorf("moved: %q, %q, %v, origin %s", was, now, err, origin())
+	}
+
+	empty := bareRemote(t)
+	if _, _, err := RemoteSetURL(linux, empty); err != nil || origin() != empty {
+		t.Fatalf("empty: %v, origin %s", err, origin())
+	}
+	if got, err := Push(linux); !got.Pushed || err != nil {
+		t.Errorf("push to the new empty Remote: %+v, %v", got, err)
+	}
+}
+
 func TestGitMissing(t *testing.T) {
 	t.Setenv("PATH", "")
 	if _, err := git("", "version"); err == nil || err.Error() != "git is not installed or not on PATH" {

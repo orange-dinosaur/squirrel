@@ -22,11 +22,9 @@ const (
 // content fills the other. It refuses when both do.
 func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 	store := env.Store
-	if _, err := os.Stat(url); err == nil {
-		// A local path is stored as-is in the Store's git config, so it must not be relative.
-		if url, err = filepath.Abs(url); err != nil {
-			return 0, err
-		}
+	url, err := absURL(url)
+	if err != nil {
+		return 0, err
 	}
 	_, statErr := os.Stat(filepath.Join(store, ".git"))
 	isRepo := statErr == nil
@@ -86,6 +84,59 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 		return 0, err
 	}
 	return RemotePushed, nil
+}
+
+// absURL makes a local path absolute, since git stores it as-is in the Store's config.
+func absURL(url string) (string, error) {
+	if _, err := os.Stat(url); err == nil {
+		return filepath.Abs(url)
+	}
+	return url, nil
+}
+
+// RemoteRemove disconnects the Store from its Remote and returns the Remote's
+// URL. The Store, its history and its Links stay.
+func RemoteRemove(env Env) (string, error) {
+	url, err := requireRemote(env.Store)
+	if err != nil {
+		return "", err
+	}
+	_, err = git(env.Store, "remote", "remove", "origin")
+	return url, err
+}
+
+// RemoteSetURL points the Store at a new address for the same Remote. It
+// returns the old address and the new one, made absolute when it is a local
+// path. It refuses a Remote that shares no history with the Store, and keeps
+// the old address on any failure.
+func RemoteSetURL(env Env, url string) (old, now string, err error) {
+	store := env.Store
+	if old, err = requireRemote(store); err != nil {
+		return "", "", err
+	}
+	if url, err = absURL(url); err != nil || url == old {
+		return old, url, err
+	}
+	// Check the new address before touching origin, so a failure changes nothing.
+	refs, err := git("", "ls-remote", url, "refs/heads/main")
+	if err != nil {
+		return "", "", err
+	}
+	_, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD")
+	if refs != "" && noHead == nil {
+		if _, err := git(store, "fetch", "-q", url, "main"); err != nil {
+			return "", "", err
+		}
+		if _, err := git(store, "merge-base", "HEAD", "FETCH_HEAD"); err != nil {
+			return "", "", errors.New("that Remote holds a different Store: run squirrel remote remove, then squirrel remote add <url>")
+		}
+	}
+	if _, err := git(store, "remote", "set-url", "origin", url); err != nil {
+		return "", "", err
+	}
+	// Drop refs from the old address. Offline is fine: the next push or pull fetches.
+	git(store, "fetch", "-q", "--prune", "origin")
+	return old, url, nil
 }
 
 // ErrNoRemote is returned by commands that need a Remote when the Store has none.
