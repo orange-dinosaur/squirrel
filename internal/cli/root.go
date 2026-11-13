@@ -39,11 +39,7 @@ func newRootCmd() *cobra.Command {
 			return menu.Run(menu.Actions{
 				Add: runAdd,
 				Apply: func(w io.Writer, tags []string) error {
-					// Quit at a Conflict and a partial apply have already printed why.
-					if err := runApply(w, tags, false, false); !errors.Is(err, errQuiet) {
-						return err
-					}
-					return nil
+					return quietOK(runApply(w, tags, false, false))
 				},
 				Status: func(w io.Writer) error {
 					_, err := printStatus(w, nil, false)
@@ -56,6 +52,14 @@ func newRootCmd() *cobra.Command {
 				Purge:     func(w io.Writer, ids []string) error { return runPurge(w, ids, true) },
 				Note:      func(w io.Writer, msg string) { printLines(w, line{noop, msg, "", nil}) },
 				Error:     printErr,
+				RemoteAdd: func(w io.Writer, url string) error {
+					return quietOK(runRemoteAdd(w, url, false, false))
+				},
+				Push:         func(w io.Writer) error { return quietOK(runPush(w, false, false)) },
+				Pull:         func(w io.Writer) error { return quietOK(runPull(w, false, false)) },
+				ShowRemote:   runRemote,
+				RemoteRemove: runRemoteRemove,
+				RemoteSetURL: runRemoteSetURL,
 			})
 		},
 	}
@@ -82,6 +86,15 @@ func newRootCmd() *cobra.Command {
 		}
 	}
 	return root
+}
+
+// quietOK drops errQuiet: in the menu, a Quit at a Conflict and a partial apply have already
+// printed why.
+func quietOK(err error) error {
+	if errors.Is(err, errQuiet) {
+		return nil
+	}
+	return err
 }
 
 func stdinIsTerminal() bool {

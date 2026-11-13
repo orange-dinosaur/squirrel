@@ -27,6 +27,13 @@ type Actions struct {
 	Purge     func(w io.Writer, ids []string) error // the menu has already asked
 	Note      func(w io.Writer, msg string)         // prints a line for an action that did nothing
 	Error     func(w io.Writer, err error)          // prints an action's failure
+
+	RemoteAdd    func(w io.Writer, url string) error
+	Push         func(w io.Writer) error
+	Pull         func(w io.Writer) error
+	ShowRemote   func(w io.Writer) error
+	RemoteRemove func(w io.Writer) error
+	RemoteSetURL func(w io.Writer, url string) error
 }
 
 type item int
@@ -34,7 +41,11 @@ type item int
 const (
 	add item = iota
 	apply
+	connect
+	push
+	pull
 	status
+	manageRemoteItem
 	browseEntries
 	listTags
 	deleteTag
@@ -73,6 +84,17 @@ func Run(a Actions) error {
 			if tags, err = askApply(); err == nil {
 				err = a.Apply(w, tags)
 			}
+		case connect:
+			var url string
+			if url, err = askURL("URL or path of the Remote"); err == nil {
+				err = a.RemoteAdd(w, url)
+			}
+		case push:
+			err = a.Push(w)
+		case pull:
+			err = a.Pull(w)
+		case manageRemoteItem:
+			err = manageRemote(a, w)
 		case status:
 			err = a.Status(w)
 		case browseEntries:
@@ -135,11 +157,22 @@ func pick() (item, error) {
 	opts := []huh.Option[item]{
 		huh.NewOption("Add a file or directory", add),
 		huh.NewOption("Apply", apply),
-		huh.NewOption("Show status", status),
+	}
+	remote := connected()
+	if remote {
+		opts = append(opts, huh.NewOption("Push", push), huh.NewOption("Pull", pull))
+	} else {
+		opts = append(opts, huh.NewOption("Connect a Remote", connect))
+	}
+	opts = append(opts, huh.NewOption("Show status", status))
+	if remote {
+		opts = append(opts, huh.NewOption("Manage the Remote", manageRemoteItem))
+	}
+	opts = append(opts,
 		huh.NewOption("Browse Entries", browseEntries),
 		huh.NewOption("List tags", listTags),
 		huh.NewOption("Delete a tag", deleteTag),
-	}
+	)
 	if hasRemoved() {
 		opts = append(opts, huh.NewOption("Purge removed Entries", purge))
 	}
