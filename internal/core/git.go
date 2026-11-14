@@ -11,6 +11,26 @@ import (
 
 var errNoGit = errors.New("git is not installed or not on PATH")
 
+// gitEnv is the caller's environment without the variables that point git at
+// another repository or inject config. English messages keep error matching
+// working, and helper transports such as ext:: are refused.
+func gitEnv() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		switch name {
+		case "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+			"GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_PREFIX",
+			"GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_NO_REPLACE_OBJECTS",
+			"GIT_REPLACE_REF_BASE", "GIT_SHALLOW_FILE", "GIT_CONFIG",
+			"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT":
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, "LC_ALL=C", "GIT_ALLOW_PROTOCOL=file:git:http:https:ssh")
+}
+
 // git runs git in dir, or in the current directory when dir is empty, and
 // returns its stdout without the final newline. A failure carries git's own message.
 func git(dir string, args ...string) (string, error) {
@@ -20,6 +40,7 @@ func git(dir string, args ...string) (string, error) {
 	}
 	var out, errOut bytes.Buffer
 	cmd := exec.Command("git", args...)
+	cmd.Env = gitEnv()
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	err := cmd.Run()
 	if errors.Is(err, exec.ErrNotFound) {

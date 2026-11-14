@@ -59,6 +59,42 @@ func TestRemoteAddPushesStore(t *testing.T) {
 	}
 }
 
+func TestGitIgnoresInheritedGitDir(t *testing.T) {
+	gitTest(t)
+	env, url := testEnv(t), bareRemote(t)
+	decoy := bareRemote(t)
+	t.Setenv("GIT_DIR", decoy)
+	write(t, filepath.Join(env.Store, "squirrel.toml"), "# manifest\n")
+	if _, err := RemoteAdd(env, url); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(env.Store, "00000001-zshrc"), "zsh")
+	if _, err := Push(env); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := git(decoy, "config", "--get", "remote.origin.url"); err == nil {
+		t.Errorf("decoy has origin %q", out)
+	}
+	if out, err := git(decoy, "rev-parse", "--verify", "-q", "HEAD"); err == nil {
+		t.Errorf("decoy has commit %q", out)
+	}
+	if files, err := git(url, "ls-tree", "--name-only", "main"); err != nil || files != "00000001-zshrc\nsquirrel.toml" {
+		t.Errorf("Remote holds %q, %v", files, err)
+	}
+}
+
+func TestRemoteAddRefusesExtTransport(t *testing.T) {
+	gitTest(t)
+	env := testEnv(t)
+	marker := filepath.Join(t.TempDir(), "pwned")
+	if _, err := RemoteAdd(env, "ext::sh -c 'touch "+marker+"'"); err == nil {
+		t.Error("RemoteAdd accepted an ext:: URL")
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("the ext:: command ran")
+	}
+}
+
 func TestRemoteAddClones(t *testing.T) {
 	gitTest(t)
 	url := pushedRemote(t)
@@ -310,6 +346,8 @@ func TestPushNoIdentity(t *testing.T) {
 	cfg := filepath.Join(t.TempDir(), "gitconfig")
 	write(t, cfg, "[user]\n\tuseConfigOnly = true\n")
 	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	t.Setenv("LC_ALL", "de_AT.utf8")
+	t.Setenv("LANGUAGE", "de")
 	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
 	_, err := Push(linux)
 	if err == nil || !strings.HasPrefix(err.Error(), "git has no name or email: run git config --global user.name") {
