@@ -32,14 +32,14 @@ func runPull(w io.Writer, backup, overwrite bool) error {
 	if err != nil {
 		return err
 	}
-	moved, err := core.Pull(env)
+	res, err := core.Pull(env)
 	if d, ok := errors.AsType[core.DirtyError](err); ok {
 		return dirtyHint(env, d)
 	}
 	if err != nil {
 		return err
 	}
-	if !moved {
+	if !res.Moved {
 		printLines(w, line{noop, "already up to date", "", nil})
 		return nil
 	}

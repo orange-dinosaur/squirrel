@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // RemoteAddResult says what connecting a Remote did.
@@ -251,44 +254,81 @@ func RemoteState(env Env) (RemoteStatus, error) {
 	return s, err
 }
 
+// PullResult says what Pull did.
+type PullResult struct {
+	Moved bool    // the Store fast-forwarded to the Remote
+	Kept  []Entry // linked Entries the Remote no longer has, now real copies
+}
+
 // Pull fast-forwards the Store to the Remote. It refuses when the Store has
-// changes of its own, and never merges. It reports whether the Store moved.
-func Pull(env Env) (bool, error) {
+// changes of its own, and never merges.
+func Pull(env Env) (PullResult, error) {
+	var res PullResult
 	store := env.Store
 	if _, err := requireRemote(store); err != nil {
-		return false, err
+		return res, err
 	}
 	paths, err := dirtyPaths(store)
 	if err != nil {
-		return false, err
+		return res, err
 	}
 	if paths != nil {
-		return false, DirtyError{paths}
+		return res, DirtyError{paths}
 	}
 	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
-		return false, err
+		return res, err
 	}
 	if _, err := git(store, "rev-parse", "--verify", "-q", "origin/main"); err != nil {
-		return false, nil // the Remote is still empty
+		return res, nil // the Remote is still empty
 	}
 	if _, err := git(store, "rev-parse", "--verify", "-q", "HEAD"); err == nil {
 		counts, err := git(store, "rev-list", "--left-right", "--count", "HEAD...origin/main")
 		if err != nil {
-			return false, err
+			return res, err
 		}
 		var ahead, behind int
 		fmt.Sscan(counts, &ahead, &behind)
 		if behind == 0 {
-			return false, nil
+			return res, nil
 		}
 		if ahead > 0 {
-			return false, errors.New("the Store and the Remote have both changed: run squirrel push to combine them")
+			return res, errors.New("the Store and the Remote have both changed: run squirrel push to combine them")
 		}
 	}
-	if _, err := git(store, "merge", "-q", "--ff-only", "origin/main"); err != nil {
-		return false, err
+	if res.Kept, err = keepVanished(env); err != nil {
+		return res, err
 	}
-	return true, nil
+	if _, err := git(store, "merge", "-q", "--ff-only", "origin/main"); err != nil {
+		return res, err
+	}
+	res.Moved = true
+	return res, nil
+}
+
+// keepVanished turns every linked Entry that the incoming Manifest no longer
+// has into a real copy, before the Store item it points at disappears.
+func keepVanished(env Env) ([]Entry, error) {
+	current, err := Load(env.Store)
+	if err != nil {
+		return nil, err
+	}
+	var incoming Manifest
+	if text, err := git(env.Store, "show", "origin/main:"+manifestName); err == nil {
+		if _, err := toml.Decode(text, &incoming); err != nil {
+			return nil, fmt.Errorf("the Remote's Manifest does not parse: %w", err)
+		}
+	}
+	var kept []Entry
+	for _, e := range current.Entries {
+		if !isLink(env, e) || slices.ContainsFunc(incoming.Entries, func(i Entry) bool { return i.ID == e.ID }) {
+			continue
+		}
+		if err := unmanage(env, e); err != nil {
+			return kept, err
+		}
+		kept = append(kept, e)
+	}
+	return kept, nil
 }
 
 // ClashError lists the Store paths that both the Store and the Remote changed.
@@ -300,8 +340,9 @@ func (e ClashError) Error() string {
 
 // PushResult says what Push did.
 type PushResult struct {
-	Pulled bool // the Remote had commits the Store lacked, and the Store took them in
-	Pushed bool // the Store's commits went up to the Remote
+	Pulled bool    // the Remote had commits the Store lacked, and the Store took them in
+	Pushed bool    // the Store's commits went up to the Remote
+	Kept   []Entry // linked Entries the Remote no longer has, now real copies
 }
 
 // Push commits the Store's changes, rebases them onto the Remote, and pushes.
@@ -329,6 +370,9 @@ func Push(env Env) (PushResult, error) {
 			return res, err
 		}
 		if behind != "0" {
+			if res.Kept, err = keepVanished(env); err != nil {
+				return res, err
+			}
 			if _, err := git(store, "rebase", "-q", "origin/main"); err != nil {
 				clashes, _ := git(store, "diff", "--name-only", "--diff-filter=U")
 				if _, abortErr := git(store, "rebase", "--abort"); abortErr != nil {

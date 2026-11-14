@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -219,15 +220,45 @@ func TestPullNoRemote(t *testing.T) {
 func TestPullFastForwards(t *testing.T) {
 	gitTest(t)
 	mac, linux := twoMachines(t)
-	if moved, err := Pull(linux); moved || err != nil {
-		t.Errorf("up to date: Pull = %v, %v", moved, err)
+	if res, err := Pull(linux); res.Moved || err != nil {
+		t.Errorf("up to date: Pull = %+v, %v", res, err)
 	}
 	pushByHand(t, mac, "squirrel.toml", "# v2\n")
-	if moved, err := Pull(linux); !moved || err != nil {
-		t.Fatalf("behind: Pull = %v, %v", moved, err)
+	if res, err := Pull(linux); !res.Moved || err != nil {
+		t.Fatalf("behind: Pull = %+v, %v", res, err)
 	}
 	if got := readFile(t, filepath.Join(linux.Store, "squirrel.toml")); got != "# v2\n" {
 		t.Errorf("Manifest after Pull %q", got)
+	}
+}
+
+func TestPullKeepsVanishedEntry(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	e := Entry{ID: "aaaaaaaa", Target: "~/.zshrc"}
+	write(t, mac.StorePath(e), "conf")
+	pushByHand(t, mac, "squirrel.toml", "[[entry]]\nid = \"aaaaaaaa\"\ntarget = \"~/.zshrc\"\n")
+	if _, err := Pull(linux); err != nil {
+		t.Fatal(err)
+	}
+	target := linux.Expand(e.Target)
+	if err := os.Symlink(linux.StorePath(e), target); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(mac.StorePath(e)); err != nil {
+		t.Fatal(err)
+	}
+	pushByHand(t, mac, "squirrel.toml", "# purged\n")
+	res, err := Pull(linux)
+	if err != nil || !res.Moved || !reflect.DeepEqual(res.Kept, []Entry{e}) {
+		t.Fatalf("Pull = %+v, %v", res, err)
+	}
+	if info, err := os.Lstat(target); err != nil || !info.Mode().IsRegular() {
+		t.Fatalf("target is not a regular file: %v, %v", info, err)
+	}
+	if got := readFile(t, target); got != "conf" {
+		t.Errorf("target holds %q", got)
 	}
 }
 
@@ -267,15 +298,15 @@ func TestPullIntoEmptyConnectedStore(t *testing.T) {
 	if got, err := RemoteAdd(linux, url); got != RemoteConnected || err != nil {
 		t.Fatalf("connect: %v, %v", got, err)
 	}
-	if moved, err := Pull(linux); moved || err != nil {
-		t.Errorf("Remote still empty: Pull = %v, %v", moved, err)
+	if res, err := Pull(linux); res.Moved || err != nil {
+		t.Errorf("Remote still empty: Pull = %+v, %v", res, err)
 	}
 	write(t, filepath.Join(mac.Store, "squirrel.toml"), "# Mac\n")
 	if _, err := RemoteAdd(mac, url); err != nil {
 		t.Fatal(err)
 	}
-	if moved, err := Pull(linux); !moved || err != nil {
-		t.Fatalf("Pull = %v, %v", moved, err)
+	if res, err := Pull(linux); !res.Moved || err != nil {
+		t.Fatalf("Pull = %+v, %v", res, err)
 	}
 	if got := readFile(t, filepath.Join(linux.Store, "squirrel.toml")); got != "# Mac\n" {
 		t.Errorf("Manifest after Pull %q", got)
@@ -292,7 +323,7 @@ func TestPushNoRemote(t *testing.T) {
 func TestPushNothingToPush(t *testing.T) {
 	gitTest(t)
 	_, linux := twoMachines(t)
-	if got, err := Push(linux); got != (PushResult{}) || err != nil {
+	if got, err := Push(linux); !reflect.DeepEqual(got, PushResult{}) || err != nil {
 		t.Errorf("Push = %+v, %v", got, err)
 	}
 }
@@ -301,11 +332,11 @@ func TestPushLocalChange(t *testing.T) {
 	gitTest(t)
 	mac, linux := twoMachines(t)
 	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
-	if got, err := Push(linux); got != (PushResult{Pushed: true}) || err != nil {
+	if got, err := Push(linux); !reflect.DeepEqual(got, PushResult{Pushed: true}) || err != nil {
 		t.Fatalf("Push = %+v, %v", got, err)
 	}
-	if moved, err := Pull(mac); !moved || err != nil {
-		t.Fatalf("Pull = %v, %v", moved, err)
+	if res, err := Pull(mac); !res.Moved || err != nil {
+		t.Fatalf("Pull = %+v, %v", res, err)
 	}
 	if got := readFile(t, filepath.Join(mac.Store, "00000002-vimrc")); got != "Linux" {
 		t.Errorf("Mac got %q", got)
@@ -317,7 +348,7 @@ func TestPushRebasesOntoRemote(t *testing.T) {
 	mac, linux := twoMachines(t)
 	pushByHand(t, mac, "00000003-gitconfig", "Mac")
 	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
-	if got, err := Push(linux); got != (PushResult{Pulled: true, Pushed: true}) || err != nil {
+	if got, err := Push(linux); !reflect.DeepEqual(got, PushResult{Pulled: true, Pushed: true}) || err != nil {
 		t.Fatalf("Push = %+v, %v", got, err)
 	}
 	if got := readFile(t, filepath.Join(linux.Store, "00000003-gitconfig")); got != "Mac" {
@@ -336,7 +367,7 @@ func TestPushClash(t *testing.T) {
 	write(t, filepath.Join(linux.Store, "squirrel.toml"), "# Linux\n")
 	got, err := Push(linux)
 	c, ok := err.(ClashError)
-	if !ok || strings.Join(c.Paths, ",") != "squirrel.toml" || got != (PushResult{}) {
+	if !ok || strings.Join(c.Paths, ",") != "squirrel.toml" || !reflect.DeepEqual(got, PushResult{}) {
 		t.Fatalf("Push = %+v, %#v", got, err)
 	}
 	if got := readFile(t, filepath.Join(linux.Store, "squirrel.toml")); got != "# Linux\n" {
@@ -354,7 +385,7 @@ func TestPushFirstToEmptyRemote(t *testing.T) {
 		t.Fatalf("connect: %v, %v", got, err)
 	}
 	write(t, filepath.Join(env.Store, "squirrel.toml"), "# first\n")
-	if got, err := Push(env); got != (PushResult{Pushed: true}) || err != nil {
+	if got, err := Push(env); !reflect.DeepEqual(got, PushResult{Pushed: true}) || err != nil {
 		t.Fatalf("Push = %+v, %v", got, err)
 	}
 	if files, _ := git(url, "ls-tree", "--name-only", "main"); files != "squirrel.toml" {
@@ -521,8 +552,8 @@ func TestRemoteAddRejoins(t *testing.T) {
 	if got, err := RemoteAdd(linux, url); got != RemoteRejoined || err != nil {
 		t.Fatalf("RemoteAdd = %v, %v", got, err)
 	}
-	if moved, err := Pull(linux); !moved || err != nil {
-		t.Errorf("catching up: Pull = %v, %v", moved, err)
+	if res, err := Pull(linux); !res.Moved || err != nil {
+		t.Errorf("catching up: Pull = %+v, %v", res, err)
 	}
 
 	if _, err := RemoteRemove(linux); err != nil {
