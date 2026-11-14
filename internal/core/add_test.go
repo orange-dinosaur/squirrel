@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -97,6 +98,10 @@ func TestAddRefusals(t *testing.T) {
 	write(t, filepath.Join(env.Home, ".vimrc"), "x")
 	write(t, filepath.Join(env.Home, ".config/nvim/init.lua"), "x")
 	os.Symlink(filepath.Join(env.Home, ".zshrc"), filepath.Join(env.Home, ".bashrc"))
+	fifo := filepath.Join(env.Home, ".fifo")
+	if err := syscall.Mkfifo(fifo, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	m := &Manifest{Entries: []Entry{
 		{ID: "11111111", Target: "~/.vimrc"},
 		{ID: "22222222", Target: "~/.config/nvim"},
@@ -113,6 +118,9 @@ func TestAddRefusals(t *testing.T) {
 		{"~/.config/nvim/init.lua", "", "managed by Entry 22222222"},
 		{"~/.zshrc", "Shell", "must use only"},
 		{"~/.missing", "", "~/.missing does not exist"},
+		{"", "", "a path cannot be empty"},
+		{"~/.config", "", "~/.config contains ~/.config/nvim, managed by Entry 22222222: remove that Entry first"},
+		{"~/.fifo", "", "~/.fifo is not a file or a folder"},
 	}
 	for _, c := range cases {
 		var tags []string
@@ -125,6 +133,26 @@ func TestAddRefusals(t *testing.T) {
 	}
 	if len(m.Entries) != 2 {
 		t.Errorf("refusals changed the Manifest: %+v", m.Entries)
+	}
+	for _, p := range []string{".config/nvim/init.lua", ".fifo"} {
+		if _, err := os.Lstat(filepath.Join(env.Home, p)); err != nil {
+			t.Errorf("a refusal moved ~/%s: %v", p, err)
+		}
+	}
+	if _, err := m.Find(env, ""); err == nil || err.Error() != "a path cannot be empty" {
+		t.Errorf("Find(\"\") error = %v", err)
+	}
+}
+
+func TestAddRefusesFolderHoldingStore(t *testing.T) {
+	env := testEnv(t)
+	env.Store = filepath.Join(env.Home, ".config/store")
+	write(t, filepath.Join(env.Home, ".config/app/x"), "x")
+	if _, err := Add(env, &Manifest{}, "~/.config", nil); err == nil || err.Error() != "~/.config contains the Store" {
+		t.Errorf("Add error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(env.Home, ".config/app/x")); err != nil {
+		t.Errorf("~/.config moved: %v", err)
 	}
 }
 

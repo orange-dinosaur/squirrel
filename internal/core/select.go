@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -63,6 +64,9 @@ func (m *Manifest) Find(env Env, arg string) (int, error) {
 // targetOf turns a path argument into its ~ form, resolving relative paths
 // against the working directory.
 func (e Env) targetOf(arg string) (string, error) {
+	if arg == "" {
+		return "", errors.New("a path cannot be empty")
+	}
 	path, err := filepath.Abs(e.Expand(arg))
 	if err != nil {
 		return "", err

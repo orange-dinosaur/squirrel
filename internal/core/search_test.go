@@ -37,7 +37,7 @@ func TestSearchCandidates(t *testing.T) {
 		got = append(got, s)
 	}
 	want := []string{
-		"~/.config/", "~/.config/a/", "~/.config/a/b/", "~/.config/a/b/c", "~/.config/a/b/c-dir/",
+		"~/.config/a/", "~/.config/a/b/", "~/.config/a/b/c", "~/.config/a/b/c-dir/",
 		"~/.config/git/", "~/.zshrc",
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {

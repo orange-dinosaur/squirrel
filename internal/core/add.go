@@ -58,6 +58,9 @@ func CheckAdd(env Env, m *Manifest, path string) error {
 
 // checkAdd applies every refusal and returns the new Entry and the absolute path.
 func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, error) {
+	if path == "" {
+		return Entry{}, "", errors.New("a path cannot be empty")
+	}
 	abs, err := filepath.Abs(env.Expand(path))
 	if err != nil {
 		return Entry{}, "", err
@@ -69,9 +72,18 @@ func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, 
 	if rel, err := filepath.Rel(env.Store, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
 		return Entry{}, "", fmt.Errorf("%s is inside the Store", path)
 	}
+	if rel, err := filepath.Rel(abs, env.Store); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+		return Entry{}, "", fmt.Errorf("%s contains the Store", path)
+	}
 	for _, o := range m.Entries {
-		if !o.Removed && o.AppliesOn(env.OS) && strings.HasPrefix(target, o.Target+"/") {
+		if o.Removed || !o.AppliesOn(env.OS) {
+			continue
+		}
+		if strings.HasPrefix(target, o.Target+"/") {
 			return Entry{}, "", fmt.Errorf("%s is inside %s, managed by Entry %s", path, o.Target, o.ID)
+		}
+		if strings.HasPrefix(o.Target, target+"/") {
+			return Entry{}, "", fmt.Errorf("%s contains %s, managed by Entry %s: remove that Entry first", path, o.Target, o.ID)
 		}
 	}
 
@@ -95,6 +107,9 @@ func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, 
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		return Entry{}, "", fmt.Errorf("%s is a symlink", path)
+	}
+	if !info.Mode().IsRegular() && !info.IsDir() {
+		return Entry{}, "", fmt.Errorf("%s is not a file or a folder", path)
 	}
 	return e, abs, nil
 }
