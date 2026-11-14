@@ -56,7 +56,11 @@ func TestPlanApply(t *testing.T) {
 	if got := ids(p.Unmanage); !slices.Equal(got, []string{"00000009"}) {
 		t.Errorf("Unmanage = %v", got)
 	}
-	if got := ids(p.Missing); !slices.Equal(got, []string{"00000008"}) {
+	var missing []Entry
+	for _, r := range p.Missing {
+		missing = append(missing, r.Entry)
+	}
+	if got := ids(missing); !slices.Equal(got, []string{"00000008"}) {
 		t.Errorf("Missing = %v", got)
 	}
 	var conflicts []State
@@ -79,6 +83,47 @@ func readFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+func TestApplySkipsSymlinkedStoreItem(t *testing.T) {
+	env := testEnv(t)
+	e := Entry{ID: "aaaaaaaa", Target: "~/.zshrc"}
+	secret := filepath.Join(env.Home, "secret")
+	write(t, secret, "PRIVATE")
+	os.MkdirAll(env.Store, 0o700)
+	if err := os.Symlink(secret, env.StorePath(e)); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := linkState(env, e); got != StoreItemLink || err != nil {
+		t.Errorf("linkState = %q, %v", got, err)
+	}
+	p, err := PlanApply(env, &Manifest{Entries: []Entry{e}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := ExecuteApply(env, p, nil)
+	if len(res.Linked) != 0 || len(res.Skipped) != 1 || res.Skipped[0].Reason != string(StoreItemLink) {
+		t.Errorf("ExecuteApply = %+v", res)
+	}
+	if _, err := os.Lstat(env.Expand(e.Target)); err == nil {
+		t.Error("~/.zshrc was linked")
+	}
+}
+
+func TestApplySaysWhatIsInTheWay(t *testing.T) {
+	env := testEnv(t)
+	nvim := Entry{ID: "aaaaaaaa", Target: "~/.config/nvim"}
+	config := Entry{ID: "bbbbbbbb", Target: "~/.config"}
+	write(t, filepath.Join(env.StorePath(nvim), "init.lua"), "x")
+	write(t, filepath.Join(env.StorePath(config), "app"), "y")
+	p, err := PlanApply(env, &Manifest{Entries: []Entry{nvim, config}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := ExecuteApply(env, p, nil)
+	if len(res.Skipped) != 1 || res.Skipped[0].Entry.ID != config.ID || res.Skipped[0].Reason != "something is already at the target" {
+		t.Errorf("ExecuteApply = %+v", res)
+	}
 }
 
 func TestExecuteApplyPrivateParent(t *testing.T) {

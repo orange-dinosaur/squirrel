@@ -15,6 +15,7 @@ const (
 	ConflictDir        State = "conflict: directory"
 	ConflictLink       State = "conflict: other link"
 	MissingFromStore   State = "missing from Store"
+	StoreItemLink      State = "Store item is a symlink"
 	RemovedState       State = "removed"
 	RemovedStillLinked State = "removed, still linked"
 	OtherOS            State = "other OS"
@@ -65,10 +66,12 @@ func Status(env Env, m *Manifest, tags []string, all bool) ([]Row, error) {
 
 // linkState compares an applying Entry's target with its Store item.
 func linkState(env Env, e Entry) (State, error) {
-	if _, err := os.Lstat(env.StorePath(e)); errors.Is(err, fs.ErrNotExist) {
+	if item, err := os.Lstat(env.StorePath(e)); errors.Is(err, fs.ErrNotExist) {
 		return MissingFromStore, nil
 	} else if err != nil {
 		return "", err
+	} else if item.Mode()&os.ModeSymlink != 0 {
+		return StoreItemLink, nil
 	}
 	info, err := os.Lstat(env.Expand(e.Target))
 	switch {

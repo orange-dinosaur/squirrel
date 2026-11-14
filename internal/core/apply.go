@@ -16,7 +16,7 @@ type Plan struct {
 	Parents   []string // missing parent directories of those targets
 	Unmanage  []Entry  // Removed Entries whose target is still the Link
 	Conflicts []Row    // targets in the way, with their conflict State
-	Missing   []Entry  // Entries whose Store item is gone, skipped
+	Missing   []Row    // Entries whose Store item is gone or a symlink, skipped
 }
 
 // PlanApply works out what apply does for the Entries with any of tags, or all
@@ -41,8 +41,8 @@ func PlanApply(env Env, m *Manifest, tags []string) (Plan, error) {
 			}
 		case ConflictFile, ConflictDir, ConflictLink:
 			p.Conflicts = append(p.Conflicts, r)
-		case MissingFromStore:
-			p.Missing = append(p.Missing, r.Entry)
+		case MissingFromStore, StoreItemLink:
+			p.Missing = append(p.Missing, r)
 		case RemovedStillLinked:
 			p.Unmanage = append(p.Unmanage, r.Entry)
 		}
@@ -79,15 +79,21 @@ func (r Result) OK() bool { return len(r.Skipped) == 0 }
 func ExecuteApply(env Env, p Plan, resolve map[string]Resolution) Result {
 	var res Result
 	skip := func(e Entry, reason string) { res.Skipped = append(res.Skipped, Skipped{e, reason}) }
-	link := func(e Entry) {
+	link := func(e Entry) bool {
 		target := env.Expand(e.Target)
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			skip(e, err.Error())
-		} else if err := os.Symlink(env.StorePath(e), target); err != nil {
-			skip(e, err.Error())
-		} else {
-			res.Linked = append(res.Linked, e)
+			return false
 		}
+		if err := os.Symlink(env.StorePath(e), target); errors.Is(err, fs.ErrExist) {
+			skip(e, "something is already at the target")
+			return false
+		} else if err != nil {
+			skip(e, err.Error())
+			return false
+		}
+		res.Linked = append(res.Linked, e)
+		return true
 	}
 
 	for _, e := range p.Links {
@@ -102,8 +108,8 @@ func ExecuteApply(env Env, p Plan, resolve map[string]Resolution) Result {
 				skip(e, fmt.Sprintf("backup %s already exists", e.Target+".squirrel-backup"))
 			} else if err := os.Rename(target, backup); err != nil {
 				skip(e, err.Error())
-			} else {
-				link(e)
+			} else if !link(e) {
+				os.Rename(backup, target)
 			}
 		case Overwrite:
 			if err := os.RemoveAll(target); err != nil {
@@ -122,8 +128,8 @@ func ExecuteApply(env Env, p Plan, resolve map[string]Resolution) Result {
 			res.Unmanaged = append(res.Unmanaged, e)
 		}
 	}
-	for _, e := range p.Missing {
-		skip(e, string(MissingFromStore))
+	for _, r := range p.Missing {
+		skip(r.Entry, string(r.State))
 	}
 	return res
 }
