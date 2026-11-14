@@ -37,7 +37,7 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 		return 0, fmt.Errorf("the Store is already connected to %s", origin)
 	}
 
-	refs, err := git("", "ls-remote", url)
+	refs, err := git("", "ls-remote", "--", url)
 	if err != nil {
 		return 0, err
 	}
@@ -65,7 +65,7 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 		if isRepo || !storeEmpty {
 			return 0, errors.New("the Remote already has content, and so does the Store: empty one of them first")
 		}
-		if _, err := git("", "clone", "-q", url, store); err != nil {
+		if _, err := git("", "clone", "-q", "--", url, store); err != nil {
 			return 0, err
 		}
 		return RemoteCloned, nil
@@ -100,6 +100,9 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 
 // absURL makes a local path absolute, since git stores it as-is in the Store's config.
 func absURL(url string) (string, error) {
+	if strings.HasPrefix(url, "-") {
+		return "", errors.New("a Remote URL cannot start with -")
+	}
 	if _, err := os.Stat(url); err == nil {
 		return filepath.Abs(url)
 	}
@@ -130,7 +133,7 @@ func RemoteSetURL(env Env, url string) (old, now string, err error) {
 		return old, url, err
 	}
 	// Check the new address before touching origin, so a failure changes nothing.
-	refs, err := git("", "ls-remote", url, "refs/heads/main")
+	refs, err := git("", "ls-remote", "--", url, "refs/heads/main")
 	if err != nil {
 		return "", "", err
 	}
@@ -154,7 +157,7 @@ var errDifferentStore = errors.New("that Remote holds a different Store: run squ
 // sharesHistory fetches main from url without touching origin and fails
 // unless it shares a commit with the Store's HEAD.
 func sharesHistory(store, url string) error {
-	if _, err := git(store, "fetch", "-q", url, "main"); err != nil {
+	if _, err := git(store, "fetch", "-q", "--", url, "main"); err != nil {
 		return err
 	}
 	if _, err := git(store, "merge-base", "HEAD", "FETCH_HEAD"); err != nil {

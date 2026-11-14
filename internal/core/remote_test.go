@@ -95,6 +95,26 @@ func TestRemoteAddRefusesExtTransport(t *testing.T) {
 	}
 }
 
+func TestRemoteRefusesDashURL(t *testing.T) {
+	gitTest(t)
+	marker := filepath.Join(t.TempDir(), "pwned")
+	url := "--upload-pack=touch " + marker
+	want := "a Remote URL cannot start with -"
+	if _, err := RemoteAdd(testEnv(t), url); err == nil || err.Error() != want {
+		t.Errorf("RemoteAdd: err = %v", err)
+	}
+	env := testEnv(t)
+	if _, err := RemoteAdd(env, bareRemote(t)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := RemoteSetURL(env, url); err == nil || err.Error() != want {
+		t.Errorf("RemoteSetURL: err = %v", err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("the --upload-pack command ran")
+	}
+}
+
 func TestRemoteAddClones(t *testing.T) {
 	gitTest(t)
 	url := pushedRemote(t)
