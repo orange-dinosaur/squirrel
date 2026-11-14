@@ -61,6 +61,14 @@ func git(dir string, args ...string) (string, error) {
 
 // commitAll commits every change in the Store as "push from <hostname>".
 // It reports whether there was anything to commit.
+// NestedRepoError names Store items that hold their own .git folder. git would
+// record each one as a pointer to that repository instead of its files.
+type NestedRepoError struct{ Paths []string }
+
+func (e NestedRepoError) Error() string {
+	return "a folder in the Store has its own .git folder, so its files cannot be synced"
+}
+
 func commitAll(store string) (bool, error) {
 	changes, err := git(store, "status", "--porcelain")
 	if err != nil || changes == "" {
@@ -72,6 +80,21 @@ func commitAll(store string) (bool, error) {
 	}
 	if _, err := git(store, "add", "-A"); err != nil {
 		return false, err
+	}
+	staged, err := git(store, "ls-files", "-s")
+	if err != nil {
+		return false, err
+	}
+	var nested []string
+	for l := range strings.Lines(staged) {
+		if mode, rest, _ := strings.Cut(l, " "); mode == "160000" {
+			_, p, _ := strings.Cut(rest, "\t")
+			nested = append(nested, strings.TrimSuffix(p, "\n"))
+		}
+	}
+	if len(nested) > 0 {
+		git(store, "reset", "-q")
+		return false, NestedRepoError{nested}
 	}
 	_, err = git(store, "commit", "-q", "-m", "push from "+host)
 	if err != nil && strings.Contains(err.Error(), "Please tell me who you are") {

@@ -39,7 +39,7 @@ func runPush(w io.Writer, backup, overwrite bool) error {
 		return hintError{hint, entryNames(env, c.Paths), c}
 	}
 	if err != nil {
-		return err
+		return nestedRepoHint(env, err)
 	}
 	if res.Pulled {
 		printLines(w, line{done, "pulled", storeName(env), []string{"from the Remote"}})
@@ -54,4 +54,14 @@ func runPush(w io.Writer, backup, overwrite bool) error {
 		return runApply(w, nil, backup, overwrite)
 	}
 	return nil
+}
+
+// nestedRepoHint lists the Entries behind a NestedRepoError and says how to
+// fix it. Any other error passes through.
+func nestedRepoHint(env core.Env, err error) error {
+	if n, ok := errors.AsType[core.NestedRepoError](err); ok {
+		hint := "delete the .git folder inside each one in " + storeName(env) + ", or remove that Entry"
+		return hintError{hint, entryNames(env, n.Paths), n}
+	}
+	return err
 }

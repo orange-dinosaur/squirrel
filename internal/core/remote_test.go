@@ -1,8 +1,10 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -357,6 +359,34 @@ func TestPushFirstToEmptyRemote(t *testing.T) {
 	}
 	if files, _ := git(url, "ls-tree", "--name-only", "main"); files != "squirrel.toml" {
 		t.Errorf("Remote holds %q", files)
+	}
+}
+
+func TestPushRefusesNestedRepo(t *testing.T) {
+	gitTest(t)
+	env, url := testEnv(t), bareRemote(t)
+	write(t, filepath.Join(env.Store, "squirrel.toml"), "# manifest\n")
+	if _, err := RemoteAdd(env, url); err != nil {
+		t.Fatal(err)
+	}
+	nvim := filepath.Join(env.Store, "00000001-nvim")
+	write(t, filepath.Join(nvim, "init.lua"), "set nu")
+	for _, args := range [][]string{{"init", "-q"}, {"add", "-A"}, {"commit", "-qm", "x"}} {
+		if _, err := git(nvim, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := Push(env)
+	n, ok := errors.AsType[NestedRepoError](err)
+	if !ok || !slices.Equal(n.Paths, []string{"00000001-nvim"}) {
+		t.Fatalf("Push = %v, want NestedRepoError for 00000001-nvim", err)
+	}
+	if tree, _ := git(url, "ls-tree", "-r", "main"); strings.Contains(tree, "160000") {
+		t.Errorf("Remote has a gitlink:\n%s", tree)
+	}
+	if status, _ := git(env.Store, "status", "--porcelain"); status != "?? 00000001-nvim/" {
+		t.Errorf("Store status %q, want the folder untracked", status)
 	}
 }
 

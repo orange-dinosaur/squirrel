@@ -142,7 +142,7 @@ func runRemoteAdd(w io.Writer, url string, backup, overwrite bool) error {
 	}
 	res, err := core.RemoteAdd(env, url)
 	if err != nil {
-		return err
+		return nestedRepoHint(env, err)
 	}
 	switch res {
 	case core.RemotePushed:
