@@ -44,7 +44,18 @@ func runPull(w io.Writer, backup, overwrite bool) error {
 		return nil
 	}
 	printLines(w, line{done, "pulled", storeName(env), []string{"from the Remote"}})
+	printKept(w, res.Kept)
 	return runApply(w, nil, backup, overwrite)
+}
+
+// printKept lists the Entries whose Links became real copies because another
+// machine purged them.
+func printKept(w io.Writer, kept []core.Entry) {
+	var lines []line
+	for _, e := range kept {
+		lines = append(lines, line{warn, "kept", e.Target, []string{"as a real copy, it was purged on another machine"}})
+	}
+	printLines(w, lines...)
 }
 
 // storeName is the Store's path with the home directory as ~.

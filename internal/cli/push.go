@@ -43,6 +43,7 @@ func runPush(w io.Writer, backup, overwrite bool) error {
 	}
 	if res.Pulled {
 		printLines(w, line{done, "pulled", storeName(env), []string{"from the Remote"}})
+		printKept(w, res.Kept)
 	}
 	if res.Pushed {
 		printLines(w, line{done, "pushed", storeName(env), []string{"to the Remote"}})
