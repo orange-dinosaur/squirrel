@@ -15,14 +15,10 @@ import (
 // browse lists the Entries, offers Change tags or Remove on the one picked,
 // and comes back to the list until Esc.
 func browse(a Actions, w io.Writer) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
 	var id string
 	all := false
 	for first := true; ; first = false {
-		m, err := core.Load(env.Store)
+		env, m, err := core.Open()
 		if err != nil {
 			return err
 		}
@@ -39,7 +35,7 @@ func browse(a Actions, w io.Writer) error {
 
 		const changeTags, remove, back = "tags", "remove", ""
 		action := changeTags
-		err = huh.NewForm(huh.NewGroup(
+		err = RunForm(huh.NewGroup(
 			huh.NewSelect[string]().
 				Title(e.Target).
 				Description(strings.Join(e.Tags, " ")).
@@ -49,7 +45,7 @@ func browse(a Actions, w io.Writer) error {
 					huh.NewOption("Back", back),
 				).
 				Value(&action),
-		)).WithKeyMap(keys()).WithTheme(theme).Run()
+		))
 		switch {
 		case err != nil || action == back:
 			err = nil // Esc here goes back to the list, not the main menu
@@ -161,12 +157,12 @@ func pickEntry(env core.Env, m *core.Manifest, start string, all bool) (string, 
 			}
 		}
 
-		err = huh.NewForm(huh.NewGroup(
+		err = RunForm(huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Browse Entries").
 				Options(opts...).
 				Value(&id),
-		)).WithKeyMap(keys()).WithTheme(theme).Run()
+		))
 		if err != nil || id != showAll {
 			return id, all, err
 		}

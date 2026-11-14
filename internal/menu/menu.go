@@ -144,6 +144,11 @@ func redraw(out []byte) {
 var theme = huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCatppuccin(style.Dark()) })
 
 // keys lets Esc leave a form, as well as Ctrl+C.
+// RunForm runs groups as one form with squirrel's keys and theme.
+func RunForm(groups ...*huh.Group) error {
+	return huh.NewForm(groups...).WithKeyMap(keys()).WithTheme(theme).Run()
+}
+
 func keys() *huh.KeyMap {
 	k := huh.NewDefaultKeyMap()
 	k.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
@@ -176,11 +181,11 @@ func pick() (item, error) {
 	if hasRemoved() {
 		opts = append(opts, huh.NewOption("Purge removed Entries", purge))
 	}
-	err := huh.NewForm(huh.NewGroup(
+	err := RunForm(huh.NewGroup(
 		huh.NewSelect[item]().
 			Title("What do you want to do?").
 			Options(append(opts, huh.NewOption("Quit", quit))...).
 			Value(&choice),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	return choice, err
 }

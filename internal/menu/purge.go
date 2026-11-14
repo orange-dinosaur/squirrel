@@ -10,11 +10,7 @@ import (
 // askPurge asks which Removed Entries to purge, all ticked, then whether every
 // machine has caught up. It returns their IDs, or a note when nothing is to go.
 func askPurge() ([]string, string, error) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return nil, "", err
-	}
-	m, err := core.Load(env.Store)
+	_, m, err := core.Open()
 	if err != nil {
 		return nil, "", err
 	}
@@ -36,7 +32,7 @@ func askPurge() ([]string, string, error) {
 	}
 
 	ok := false
-	err = huh.NewForm(
+	err = RunForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Removed Entries to purge").
@@ -51,7 +47,7 @@ func askPurge() ([]string, string, error) {
 				Description("A machine that hasn't caught up keeps a broken Link.").
 				Value(&ok),
 		).WithHideFunc(func() bool { return len(ids) == 0 }),
-	).WithKeyMap(keys()).WithTheme(theme).Run()
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -64,11 +60,7 @@ func askPurge() ([]string, string, error) {
 // hasRemoved reports whether the Manifest holds a Removed Entry. A Store that
 // can't be read counts as none; the actions report that error themselves.
 func hasRemoved() bool {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return false
-	}
-	m, err := core.Load(env.Store)
+	_, m, err := core.Open()
 	if err != nil {
 		return false
 	}

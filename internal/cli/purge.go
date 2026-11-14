@@ -8,6 +8,7 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/orange-dinosaur/squirrel/internal/core"
+	"github.com/orange-dinosaur/squirrel/internal/menu"
 	"github.com/spf13/cobra"
 )
 
@@ -52,11 +53,10 @@ func runPurge(w io.Writer, args []string, yes bool) error {
 		}
 		printLines(w, lines...)
 		ok := false
-		err := huh.NewConfirm().
+		err := menu.RunForm(huh.NewGroup(huh.NewConfirm().
 			Title("Has every machine run apply since these were removed?").
 			Description("Purging deletes their Store files. A machine that hasn't caught up keeps a broken Link.").
-			Value(&ok).
-			Run()
+			Value(&ok)))
 		if err != nil || !ok {
 			printLines(w, line{noop, "nothing purged", "", nil})
 			return errQuiet

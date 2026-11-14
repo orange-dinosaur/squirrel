@@ -12,11 +12,7 @@ import (
 // it, asks whether to untag them. It returns the Tag and the untag answer, or
 // a note to print instead when there is nothing to delete.
 func askDeleteTag() (tag string, untag bool, note string, err error) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return "", false, "", err
-	}
-	m, err := core.Load(env.Store)
+	_, m, err := core.Open()
 	if err != nil {
 		return "", false, "", err
 	}
@@ -30,12 +26,12 @@ func askDeleteTag() (tag string, untag bool, note string, err error) {
 	for _, tc := range tags {
 		opts = append(opts, huh.NewOption(tc.Tag, tc.Tag))
 	}
-	err = huh.NewForm(huh.NewGroup(
+	err = RunForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Delete a tag").
 			Options(opts...).
 			Value(&tag),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	if err != nil {
 		return "", false, "", err
 	}
@@ -48,11 +44,11 @@ func askDeleteTag() (tag string, untag bool, note string, err error) {
 	if n == 1 {
 		entries = "entry"
 	}
-	err = huh.NewForm(huh.NewGroup(
+	err = RunForm(huh.NewGroup(
 		huh.NewConfirm().
 			Title(fmt.Sprintf("%s is on %d %s. Untag them and delete?", tag, n, entries)).
 			Value(&untag),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	if err == nil && !untag {
 		return "", false, "nothing changed", nil
 	}

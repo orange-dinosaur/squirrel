@@ -26,13 +26,15 @@ const (
 // Dark reports whether the terminal background is dark. It asks the terminal once per run, and
 // only when stdout is a terminal. With no answer it assumes dark.
 var Dark = sync.OnceValue(func() bool {
-	if !term.IsTerminal(os.Stdout.Fd()) {
+	// The terminal answers on stdin, so without one the question can only time out.
+	if !term.IsTerminal(os.Stdout.Fd()) || !term.IsTerminal(os.Stdin.Fd()) {
 		return true
 	}
 	return lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 })
 
-func flavour() catppuccin.Flavour {
+// Flavour is the Catppuccin flavour that matches the terminal: Mocha on dark, Latte on light.
+func Flavour() catppuccin.Flavour {
 	if Dark() {
 		return catppuccin.Mocha
 	}
@@ -42,22 +44,22 @@ func flavour() catppuccin.Flavour {
 // catppuccin.Color's RGBA does not follow color.Color, so lipgloss gets the hex string.
 func hex(c catppuccin.Color) color.Color { return lipgloss.Color(c.Hex) }
 
-func Green() color.Color   { return hex(flavour().Green()) }
-func Yellow() color.Color  { return hex(flavour().Yellow()) }
-func Red() color.Color     { return hex(flavour().Red()) }
-func Mauve() color.Color   { return hex(flavour().Mauve()) }
-func Overlay() color.Color { return hex(flavour().Overlay1()) }
-func Base() color.Color    { return hex(flavour().Base()) }
+func green() color.Color   { return hex(Flavour().Green()) }
+func yellow() color.Color  { return hex(Flavour().Yellow()) }
+func red() color.Color     { return hex(Flavour().Red()) }
+func Mauve() color.Color   { return hex(Flavour().Mauve()) }
+func Overlay() color.Color { return hex(Flavour().Overlay1()) }
+func base() color.Color    { return hex(Flavour().Base()) }
 
-// Color is the badge color for an outcome.
-func Color(o Outcome) color.Color {
+// badgeColor is the badge color for an outcome.
+func badgeColor(o Outcome) color.Color {
 	switch o {
 	case Done:
-		return Green()
+		return green()
 	case Warn:
-		return Yellow()
+		return yellow()
 	case Fail:
-		return Red()
+		return red()
 	}
 	return Overlay()
 }
@@ -78,5 +80,5 @@ func StateOutcome(s core.State) Outcome {
 func Badge(o Outcome, word string, width int) string {
 	word = strings.ToUpper(word)
 	word += strings.Repeat(" ", max(0, width-lipgloss.Width(word)))
-	return lipgloss.NewStyle().Background(Color(o)).Foreground(Base()).Bold(true).Render(" " + word + " ")
+	return lipgloss.NewStyle().Background(badgeColor(o)).Foreground(base()).Bold(true).Render(" " + word + " ")
 }

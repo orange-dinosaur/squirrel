@@ -18,7 +18,7 @@ func connected() bool {
 // askURL asks for a Remote's address.
 func askURL(title string) (string, error) {
 	var url string
-	err := huh.NewForm(huh.NewGroup(
+	err := RunForm(huh.NewGroup(
 		huh.NewInput().
 			Title(title).
 			Placeholder("git@github.com:you/dotfiles.git").
@@ -29,7 +29,7 @@ func askURL(title string) (string, error) {
 				}
 				return nil
 			}),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	return strings.TrimSpace(url), err
 }
 
@@ -40,7 +40,7 @@ func manageRemote(a Actions, w io.Writer) error {
 	}
 	const disconnect, setURL, back = "disconnect", "set-url", "back"
 	choice := back
-	err := huh.NewForm(huh.NewGroup(
+	err := RunForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("What do you want to do with the Remote?").
 			Options(
@@ -49,7 +49,7 @@ func manageRemote(a Actions, w io.Writer) error {
 				huh.NewOption("Back", back),
 			).
 			Value(&choice),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	if err != nil {
 		return err
 	}

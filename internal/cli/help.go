@@ -6,31 +6,32 @@ import (
 	"charm.land/lipgloss/v2"
 	catppuccin "github.com/catppuccin/go"
 	"github.com/charmbracelet/fang"
+	"github.com/orange-dinosaur/squirrel/internal/style"
 )
 
-// helpColors maps Fang's help colors onto Catppuccin, Latte on light terminals and Mocha on dark.
-func helpColors(c lipgloss.LightDarkFunc) fang.ColorScheme {
-	pick := func(f func(catppuccin.Flavour) catppuccin.Color) color.Color {
-		return c(lipgloss.Color(f(catppuccin.Latte).Hex), lipgloss.Color(f(catppuccin.Mocha).Hex))
-	}
-	text := pick(catppuccin.Flavour.Text)
-	overlay := pick(catppuccin.Flavour.Overlay1)
+// helpColors maps Fang's help colors onto the Catppuccin flavour the rest of squirrel uses, so
+// help and output never disagree. Fang's own light/dark guess is ignored.
+func helpColors(lipgloss.LightDarkFunc) fang.ColorScheme {
+	f := style.Flavour()
+	pick := func(c catppuccin.Color) color.Color { return lipgloss.Color(c.Hex) }
+	text := pick(f.Text())
+	overlay := pick(f.Overlay1())
 	return fang.ColorScheme{
 		Base:           text,
-		Title:          pick(catppuccin.Flavour.Mauve),
+		Title:          pick(f.Mauve()),
 		Description:    text,
-		Codeblock:      pick(catppuccin.Flavour.Mantle),
-		Program:        pick(catppuccin.Flavour.Blue),
+		Codeblock:      pick(f.Mantle()),
+		Program:        pick(f.Blue()),
 		DimmedArgument: overlay,
 		Comment:        overlay,
-		Flag:           pick(catppuccin.Flavour.Subtext1),
+		Flag:           pick(f.Subtext1()),
 		FlagDefault:    overlay,
-		Command:        pick(catppuccin.Flavour.Pink),
-		QuotedString:   pick(catppuccin.Flavour.Green),
+		Command:        pick(f.Pink()),
+		QuotedString:   pick(f.Green()),
 		Argument:       text,
 		Help:           text,
 		Dash:           overlay,
-		ErrorHeader:    [2]color.Color{pick(catppuccin.Flavour.Base), pick(catppuccin.Flavour.Red)},
-		ErrorDetails:   pick(catppuccin.Flavour.Red),
+		ErrorHeader:    [2]color.Color{pick(f.Base()), pick(f.Red())},
+		ErrorDetails:   pick(f.Red()),
 	}
 }

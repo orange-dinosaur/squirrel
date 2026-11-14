@@ -8,6 +8,7 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/orange-dinosaur/squirrel/internal/core"
+	"github.com/orange-dinosaur/squirrel/internal/menu"
 	"github.com/spf13/cobra"
 )
 
@@ -79,7 +80,7 @@ func runApply(w io.Writer, tags []string, backup, overwrite bool) error {
 
 func askResolution(c core.Row) (core.Resolution, error) {
 	var r core.Resolution
-	err := huh.NewSelect[core.Resolution]().
+	err := menu.RunForm(huh.NewGroup(huh.NewSelect[core.Resolution]().
 		Title(fmt.Sprintf("%s is in the way (%s)", c.Entry.Target, c.State)).
 		Options(
 			huh.NewOption("Back it up to "+c.Entry.Target+".squirrel-backup", core.Backup),
@@ -87,8 +88,7 @@ func askResolution(c core.Row) (core.Resolution, error) {
 			huh.NewOption("Skip this Entry", core.Skip),
 			huh.NewOption("Quit without changing anything", quit),
 		).
-		Value(&r).
-		Run()
+		Value(&r)))
 	return r, err
 }
 

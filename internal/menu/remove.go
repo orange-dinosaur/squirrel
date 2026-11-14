@@ -12,11 +12,11 @@ func askRemove(env core.Env, e core.Entry) (bool, error) {
 		desc = "It isn't meant for " + env.OS + ", so nothing here changes."
 	}
 	var ok bool
-	err := huh.NewForm(huh.NewGroup(
+	err := RunForm(huh.NewGroup(
 		huh.NewConfirm().
 			Title("Unmanage " + e.Target + "?").
 			Description(desc).
 			Value(&ok),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	return ok, err
 }

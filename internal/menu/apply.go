@@ -7,11 +7,7 @@ import (
 
 // askApply asks which Tags to apply. None means every Entry for this OS.
 func askApply() ([]string, error) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return nil, err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return nil, err
 	}
@@ -25,13 +21,13 @@ func askApply() ([]string, error) {
 	}
 
 	var picked []string
-	err = huh.NewForm(huh.NewGroup(
+	err = RunForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Tags to apply").
 			Description("pick none to apply everything for " + env.OS).
 			Options(huh.NewOptions(choices...)...).
 			Height(min(len(choices), 10) + 2).
 			Value(&picked),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	return picked, err
 }

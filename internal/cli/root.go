@@ -33,7 +33,7 @@ func newRootCmd() *cobra.Command {
 		Short: "Keep your configs and dotfiles in one Store and link them into your home directory",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !stdinIsTerminal() {
+			if !stdinIsTerminal() || !term.IsTerminal(os.Stdout.Fd()) {
 				return cmd.Help()
 			}
 			return menu.Run(menu.Actions{

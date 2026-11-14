@@ -11,11 +11,7 @@ import (
 // header is the line above the menu: "squirrel  linux · 12 Entries   2 NOT LINKED ".
 // Without a readable Store it is just the name.
 func header() string {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return headerLine("", nil)
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return headerLine("", nil)
 	}

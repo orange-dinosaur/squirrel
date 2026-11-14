@@ -13,11 +13,7 @@ import (
 // AskAdd asks for a path, searched for, picked from the home folder or typed
 // and checked as you go, then its Tags unless withTags is false.
 func AskAdd(withTags bool) (string, []string, error) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return "", nil, err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return "", nil, err
 	}
@@ -25,7 +21,7 @@ func AskAdd(withTags bool) (string, []string, error) {
 	choices := slices.DeleteFunc(tagChoices(m), func(t string) bool { return t == env.OS })
 
 	how := "search"
-	err = huh.NewForm(huh.NewGroup(
+	err = RunForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("How do you want to find it?").
 			Options(
@@ -34,7 +30,7 @@ func AskAdd(withTags bool) (string, []string, error) {
 				huh.NewOption("Type a path", "type"),
 			).
 			Value(&how),
-	)).WithKeyMap(keys()).WithTheme(theme).Run()
+	))
 	if err != nil {
 		return "", nil, err
 	}
@@ -133,6 +129,6 @@ func AskAdd(withTags bool) (string, []string, error) {
 		pick, add := tagFields("Tags", env.OS+" is always added", choices, &picked, &extra)
 		groups = append(groups, huh.NewGroup(pick, add))
 	}
-	err = huh.NewForm(groups...).WithKeyMap(keys()).WithTheme(theme).Run()
+	err = RunForm(groups...)
 	return strings.TrimSpace(path), append(picked, strings.Fields(extra)...), err
 }
