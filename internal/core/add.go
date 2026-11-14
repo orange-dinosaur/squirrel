@@ -15,13 +15,20 @@ import (
 // Add moves the item at path into the Store, links it back, and saves the
 // Manifest. Tags always get this OS's tag, since the Link is made here. If a later
 // stage fails, the earlier ones are undone so the item ends up where it was.
+// lockStore keeps other users out of the Store. git does not keep file modes
+// beyond the executable bit, so the folder's mode is what protects them.
+func lockStore(store string) error { return os.Chmod(store, 0o700) }
+
 func Add(env Env, m *Manifest, path string, tags []string) (Entry, error) {
 	e, abs, err := checkAdd(env, m, path, tags)
 	if err != nil {
 		return Entry{}, err
 	}
 
-	if err := os.MkdirAll(env.Store, 0o755); err != nil {
+	if err := os.MkdirAll(env.Store, 0o700); err != nil {
+		return Entry{}, err
+	}
+	if err := lockStore(env.Store); err != nil {
 		return Entry{}, err
 	}
 	stored := env.StorePath(e)

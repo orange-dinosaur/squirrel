@@ -81,6 +81,20 @@ func readFile(t *testing.T, path string) string {
 	return string(b)
 }
 
+func TestExecuteApplyPrivateParent(t *testing.T) {
+	env := testEnv(t)
+	m := &Manifest{Entries: []Entry{{ID: "00000001", Target: "~/.newdir/f"}}}
+	write(t, env.StorePath(m.Entries[0]), "k")
+	p, err := PlanApply(env, m, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ExecuteApply(env, p, nil)
+	if info, err := os.Stat(filepath.Join(env.Home, ".newdir")); err != nil || info.Mode().Perm() != 0o700 {
+		t.Errorf("parent mode %v, %v, want 0700", info.Mode().Perm(), err)
+	}
+}
+
 func TestExecuteApply(t *testing.T) {
 	env := testEnv(t)
 	m := &Manifest{Entries: []Entry{

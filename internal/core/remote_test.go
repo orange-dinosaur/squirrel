@@ -133,6 +133,9 @@ func TestRemoteAddClones(t *testing.T) {
 		if got := readFile(t, filepath.Join(env.Store, "squirrel.toml")); got != "# from the Mac\n" {
 			t.Errorf("%s: cloned Manifest %q", name, got)
 		}
+		if info, err := os.Stat(env.Store); err != nil || info.Mode().Perm() != 0o700 {
+			t.Errorf("%s: Store mode %v, %v, want 0700", name, info.Mode().Perm(), err)
+		}
 	}
 }
 

@@ -81,7 +81,7 @@ func ExecuteApply(env Env, p Plan, resolve map[string]Resolution) Result {
 	skip := func(e Entry, reason string) { res.Skipped = append(res.Skipped, Skipped{e, reason}) }
 	link := func(e Entry) {
 		target := env.Expand(e.Target)
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			skip(e, err.Error())
 		} else if err := os.Symlink(env.StorePath(e), target); err != nil {
 			skip(e, err.Error())
@@ -154,7 +154,21 @@ func copyItem(src, dst string) error {
 		return err
 	}
 	if info.IsDir() {
-		return os.CopyFS(dst, os.DirFS(src))
+		if err := os.CopyFS(dst, os.DirFS(src)); err != nil {
+			return err
+		}
+		// CopyFS writes 0777 and 0666 before the umask. Put the original modes back.
+		return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.Type()&fs.ModeSymlink != 0 {
+				return err
+			}
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			rel, _ := filepath.Rel(src, p)
+			return os.Chmod(filepath.Join(dst, rel), info.Mode().Perm())
+		})
 	}
 	in, err := os.Open(src)
 	if err != nil {

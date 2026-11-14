@@ -31,6 +31,23 @@ func assertLinked(t *testing.T, env Env, e Entry) {
 	}
 }
 
+func TestAddLocksStore(t *testing.T) {
+	for name, prepare := range map[string]func(Env){
+		"missing Store":  func(Env) {},
+		"open old Store": func(env Env) { os.MkdirAll(env.Store, 0o755) },
+	} {
+		env := testEnv(t)
+		prepare(env)
+		write(t, filepath.Join(env.Home, ".zshrc"), "zsh")
+		if _, err := Add(env, &Manifest{}, "~/.zshrc", nil); err != nil {
+			t.Fatal(err)
+		}
+		if info, err := os.Stat(env.Store); err != nil || info.Mode().Perm() != 0o700 {
+			t.Errorf("%s: Store mode %v, %v, want 0700", name, info.Mode().Perm(), err)
+		}
+	}
+}
+
 func TestAddFile(t *testing.T) {
 	env := testEnv(t)
 	write(t, filepath.Join(env.Home, ".zshrc"), "zsh")

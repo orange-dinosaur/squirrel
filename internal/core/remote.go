@@ -71,13 +71,16 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 		if _, err := git("", "clone", "-q", "--", url, store); err != nil {
 			return 0, err
 		}
+		if err := lockStore(store); err != nil {
+			return 0, err
+		}
 		return RemoteCloned, nil
 	}
 
 	// The Remote is empty. A rerun after a failed push lands here too, with
 	// origin already set, and pushes again.
 	if !isRepo {
-		if err := os.MkdirAll(store, 0o755); err != nil {
+		if err := os.MkdirAll(store, 0o700); err != nil {
 			return 0, err
 		}
 		if _, err := git(store, "init", "-q", "-b", "main"); err != nil {
@@ -266,6 +269,9 @@ func Pull(env Env) (PullResult, error) {
 	var res PullResult
 	store := env.Store
 	if _, err := requireRemote(store); err != nil {
+		return res, err
+	}
+	if err := lockStore(store); err != nil {
 		return res, err
 	}
 	paths, err := dirtyPaths(store)

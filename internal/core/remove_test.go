@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+func TestRemoveKeepsModes(t *testing.T) {
+	env := testEnv(t)
+	dir := filepath.Join(env.Home, ".gnupg")
+	key := filepath.Join(dir, "private.key")
+	write(t, key, "KEY")
+	if err := os.Chmod(key, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manifest{}
+	if _, err := Add(env, m, "~/.gnupg", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Remove(env, m, "~/.gnupg"); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]os.FileMode{dir: 0o700, key: 0o600} {
+		if info, err := os.Lstat(path); err != nil || info.Mode().Perm() != want {
+			t.Errorf("%s mode %v, %v, want %v", path, info.Mode().Perm(), err, want)
+		}
+	}
+}
+
 func TestRemove(t *testing.T) {
 	env := testEnv(t)
 	write(t, filepath.Join(env.Home, ".zshrc"), "zsh")
