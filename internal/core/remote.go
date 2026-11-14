@@ -224,15 +224,43 @@ func HasRemote(env Env) bool {
 
 // dirtyPaths lists the Store paths that changed since the last commit.
 func dirtyPaths(store string) ([]string, error) {
-	status, err := git(store, "status", "--porcelain")
-	if err != nil || status == "" {
+	return statusPaths(store, "")
+}
+
+// statusPaths lists the paths git status reports with the two-letter code
+// want, or every path when want is empty. -z keeps names with spaces or
+// non-ASCII letters unquoted.
+func statusPaths(store, want string, flags ...string) ([]string, error) {
+	out, err := git(store, append([]string{"status", "--porcelain", "-z"}, flags...)...)
+	if err != nil {
 		return nil, err
 	}
 	var paths []string
-	for _, l := range strings.Split(status, "\n") {
-		paths = append(paths, l[3:])
+	fields := strings.Split(out, "\x00")
+	for i := 0; i < len(fields); i++ {
+		f := fields[i]
+		if len(f) < 4 {
+			continue
+		}
+		if f[0] == 'R' || f[0] == 'C' {
+			i++ // the next field is the old path
+		}
+		if want == "" || f[:2] == want {
+			paths = append(paths, f[3:])
+		}
 	}
 	return paths, nil
+}
+
+// nulPaths splits git's -z output into paths.
+func nulPaths(out string) []string {
+	var paths []string
+	for _, p := range strings.Split(out, "\x00") {
+		if p != "" {
+			paths = append(paths, p)
+		}
+	}
+	return paths
 }
 
 // RemoteStatus is how the Store stands against its Remote.
@@ -240,6 +268,7 @@ type RemoteStatus struct {
 	URL           string
 	Ahead, Behind int      // commits only the Store has, and only the Remote has
 	Dirty         []string // Store paths changed since the last commit
+	Ignored       []string // Store paths git ignores, so they never reach the Remote
 }
 
 // RemoteState fetches and compares the Store with its Remote.
@@ -252,6 +281,9 @@ func RemoteState(env Env) (RemoteStatus, error) {
 	}
 	s.URL = url
 	if s.Dirty, err = dirtyPaths(store); err != nil {
+		return s, err
+	}
+	if s.Ignored, err = statusPaths(store, "!!", "--ignored"); err != nil {
 		return s, err
 	}
 	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
@@ -396,14 +428,15 @@ func Push(env Env) (PushResult, error) {
 				return res, err
 			}
 			if _, err := git(store, "rebase", "-q", "origin/main"); err != nil {
-				clashes, _ := git(store, "diff", "--name-only", "--diff-filter=U")
+				out, _ := git(store, "diff", "--name-only", "-z", "--diff-filter=U")
 				if _, abortErr := git(store, "rebase", "--abort"); abortErr != nil {
 					return res, abortErr
 				}
-				if clashes == "" {
+				clashes := nulPaths(out)
+				if clashes == nil {
 					return res, err
 				}
-				return res, ClashError{strings.Split(clashes, "\n")}
+				return res, ClashError{clashes}
 			}
 			res.Pulled = true
 		}

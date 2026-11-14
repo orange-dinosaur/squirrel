@@ -475,6 +475,34 @@ func TestPushNoIdentity(t *testing.T) {
 	}
 }
 
+func TestDirtyPathsUnquoted(t *testing.T) {
+	gitTest(t)
+	env := testEnv(t)
+	write(t, filepath.Join(env.Store, "squirrel.toml"), "# manifest\n")
+	if _, err := RemoteAdd(env, bareRemote(t)); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(env.Store, "00000001-my app.conf"), "x")
+	if got, err := dirtyPaths(env.Store); err != nil || !slices.Equal(got, []string{"00000001-my app.conf"}) {
+		t.Errorf("dirtyPaths = %q, %v", got, err)
+	}
+}
+
+func TestRemoteStateIgnored(t *testing.T) {
+	gitTest(t)
+	env := testEnv(t)
+	write(t, filepath.Join(env.Store, "squirrel.toml"), "# manifest\n")
+	write(t, filepath.Join(env.Store, "00000001-app/.gitignore"), "*.local\n")
+	write(t, filepath.Join(env.Store, "00000001-app/keys.local"), "secret")
+	if _, err := RemoteAdd(env, bareRemote(t)); err != nil {
+		t.Fatal(err)
+	}
+	s, err := RemoteState(env)
+	if err != nil || !slices.Equal(s.Ignored, []string{"00000001-app/keys.local"}) || len(s.Dirty) != 0 {
+		t.Errorf("RemoteState = %+v, %v", s, err)
+	}
+}
+
 func TestRemoteStateNoRemote(t *testing.T) {
 	gitTest(t)
 	env := testEnv(t)
