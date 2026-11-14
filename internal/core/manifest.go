@@ -2,10 +2,15 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
+	"unicode"
 
 	"github.com/BurntSushi/toml"
 )
@@ -27,12 +32,56 @@ type Manifest struct {
 // Load reads the Manifest in store. A missing file is an empty Manifest.
 func Load(store string) (*Manifest, error) {
 	var m Manifest
-	_, err := toml.DecodeFile(filepath.Join(store, manifestName), &m)
+	file := filepath.Join(store, manifestName)
+	_, err := toml.DecodeFile(file, &m)
 	if errors.Is(err, fs.ErrNotExist) {
 		return &m, nil
 	}
+	if err != nil {
+		return &m, fmt.Errorf("the Manifest %s does not parse: %w", file, err)
+	}
 	m.remember()
-	return &m, err
+	return &m, m.validate()
+}
+
+var entryID = regexp.MustCompile(`^[0-9a-f]{8}$`)
+
+// validate refuses a Manifest whose IDs or targets would point outside the
+// Store or home, or that the rest of squirrel assumes cannot happen.
+func (m *Manifest) validate() error {
+	for _, e := range m.Entries {
+		if !entryID.MatchString(e.ID) {
+			return fmt.Errorf("the Manifest has a bad Entry: id %q must be 8 hex digits", e.ID)
+		}
+	}
+	seen := map[string]bool{}
+	for _, e := range m.Entries {
+		if seen[e.ID] {
+			return fmt.Errorf("the Manifest has two Entries with id %q", e.ID)
+		}
+		seen[e.ID] = true
+	}
+	for _, e := range m.Entries {
+		t := e.Target
+		if !strings.HasPrefix(t, "~/") || len(t) <= 2 || t != path.Clean(t) || strings.ContainsFunc(t, unicode.IsControl) {
+			return fmt.Errorf("the Manifest has a bad Entry (id %s): target %q must be a clean path inside ~", e.ID, t)
+		}
+	}
+	// remember has already merged every Entry's tags into m.Tags.
+	for _, t := range m.Tags {
+		if !ValidTag(t) {
+			return fmt.Errorf("the Manifest has a bad tag %q: use only a-z, 0-9 and -", t)
+		}
+	}
+	for _, e := range m.Entries {
+		if e.Removed {
+			continue
+		}
+		if other, clash := m.Clash(e); clash {
+			return fmt.Errorf("the Manifest has two Entries for %s on the same OS (%s and %s)", e.Target, e.ID, other)
+		}
+	}
+	return nil
 }
 
 // remember adds the Entries' Tags to the Tag list, so the list never misses
