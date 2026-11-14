@@ -31,11 +31,7 @@ func newStatusCmd() *cobra.Command {
 
 // printStatus prints the status table and reports whether every row is OK.
 func printStatus(w io.Writer, tags []string, all bool) (bool, error) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return false, err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return false, err
 	}

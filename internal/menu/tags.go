@@ -1,7 +1,6 @@
 package menu
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -53,13 +52,6 @@ func tagFields(title, desc string, choices []string, picked *[]string, extra *st
 		Title("New Tags").
 		Description("separated by spaces, a-z, 0-9 and -").
 		Value(extra).
-		Validate(func(s string) error {
-			for _, t := range strings.Fields(s) {
-				if !core.ValidTag(t) {
-					return fmt.Errorf("%q must use only a-z, 0-9 and -", t)
-				}
-			}
-			return nil
-		})
+		Validate(func(s string) error { return core.CheckTags(strings.Fields(s)) })
 	return pick, add
 }

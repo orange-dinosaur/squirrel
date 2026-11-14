@@ -28,10 +28,8 @@ func SetTags(env Env, m *Manifest, arg string, tags []string) (Entry, error) {
 }
 
 func retag(env Env, m *Manifest, arg string, tags []string, change func([]string) []string) (Entry, error) {
-	for _, t := range tags {
-		if !ValidTag(t) {
-			return Entry{}, fmt.Errorf("tag %q must use only a-z, 0-9 and -", t)
-		}
+	if err := CheckTags(tags); err != nil {
+		return Entry{}, err
 	}
 	i, err := m.Find(env, arg)
 	if err != nil {
@@ -83,10 +81,13 @@ func DeleteTag(env Env, m *Manifest, tag string, untag bool) ([]Entry, error) {
 		return nil, fmt.Errorf("no Tag %q", tag)
 	}
 	entries := slices.Clone(m.Entries)
-	var untagged []Entry
+	var untagged, carriers []Entry
 	for i, e := range entries {
 		if !slices.Contains(e.Tags, tag) {
 			continue
+		}
+		if !e.Removed {
+			carriers = append(carriers, e)
 		}
 		e.Tags = slices.DeleteFunc(slices.Clone(e.Tags), func(t string) bool { return t == tag })
 		entries[i] = e
@@ -95,12 +96,6 @@ func DeleteTag(env Env, m *Manifest, tag string, untag bool) ([]Entry, error) {
 		}
 	}
 	if len(untagged) > 0 && !untag {
-		var carriers []Entry
-		for _, e := range m.Entries {
-			if !e.Removed && slices.Contains(e.Tags, tag) {
-				carriers = append(carriers, e)
-			}
-		}
 		return nil, TagCarriedError{tag, carriers}
 	}
 	next := &Manifest{

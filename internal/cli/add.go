@@ -41,11 +41,7 @@ func newAddCmd() *cobra.Command {
 }
 
 func runAdd(w io.Writer, path string, tags []string) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return err
 	}

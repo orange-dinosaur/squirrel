@@ -30,11 +30,7 @@ func newPurgeCmd() *cobra.Command {
 }
 
 func runPurge(w io.Writer, args []string, yes bool) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return err
 	}

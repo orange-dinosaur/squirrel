@@ -110,7 +110,7 @@ func TestAddRefusals(t *testing.T) {
 	cases := []struct {
 		path, tag, want string
 	}{
-		{outside, "", "not inside HOME"},
+		{outside, "", "is outside HOME"},
 		{env.Home, "", "not inside HOME"},
 		{filepath.Join(env.Store, "stray"), "", "inside the Store"},
 		{"~/.bashrc", "", "is a symlink"},

@@ -18,6 +18,16 @@ func ValidTag(t string) bool {
 	return tagName.MatchString(t)
 }
 
+// CheckTags refuses the first Tag name that is not legal.
+func CheckTags(tags []string) error {
+	for _, t := range tags {
+		if !ValidTag(t) {
+			return fmt.Errorf("tag %q must use only a-z, 0-9 and -", t)
+		}
+	}
+	return nil
+}
+
 // AppliesOn reports whether the Entry is meant for os. An Entry with no OS tag
 // applies everywhere.
 func (e Entry) AppliesOn(os string) bool {

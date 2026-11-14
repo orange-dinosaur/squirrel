@@ -20,11 +20,7 @@ func newRetagCmd(use, short string, change retagFunc, completeRest completeFunc)
 		Args:              cobra.MinimumNArgs(2),
 		ValidArgsFunction: targetThen(completeRest),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			env, err := core.LoadEnv()
-			if err != nil {
-				return err
-			}
-			m, err := core.Load(env.Store)
+			env, m, err := core.Open()
 			if err != nil {
 				return err
 			}
@@ -39,11 +35,7 @@ func newRetagCmd(use, short string, change retagFunc, completeRest completeFunc)
 }
 
 func runSetTags(w io.Writer, id string, tags []string) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return err
 	}
@@ -85,11 +77,7 @@ func newTagsCmd() *cobra.Command {
 }
 
 func runDeleteTag(w io.Writer, tag string, untag bool) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return err
 	}
@@ -117,11 +105,7 @@ func runDeleteTag(w io.Writer, tag string, untag bool) error {
 }
 
 func printTags(out io.Writer) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
-	m, err := core.Load(env.Store)
+	_, m, err := core.Open()
 	if err != nil {
 		return err
 	}

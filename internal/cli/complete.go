@@ -12,11 +12,7 @@ type completeFunc = func(*cobra.Command, []string, string) ([]string, cobra.Shel
 const noFiles = cobra.ShellCompDirectiveNoFileComp
 
 func loadForCompletion() (core.Env, *core.Manifest, bool) {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return env, nil, false
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	return env, m, err == nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -59,21 +58,18 @@ func CheckAdd(env Env, m *Manifest, path string) error {
 
 // checkAdd applies every refusal and returns the new Entry and the absolute path.
 func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, error) {
-	if path == "" {
-		return Entry{}, "", errors.New("a path cannot be empty")
-	}
-	abs, err := filepath.Abs(env.Expand(path))
+	target, err := env.targetOf(path)
 	if err != nil {
 		return Entry{}, "", err
 	}
-	target, ok := env.Contract(abs)
-	if !ok || target == "~" {
+	if target == "~" {
 		return Entry{}, "", fmt.Errorf("%s is not inside HOME", path)
 	}
-	if rel, err := filepath.Rel(env.Store, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+	abs := env.Expand(target)
+	if inside(env.Store, abs) {
 		return Entry{}, "", fmt.Errorf("%s is inside the Store", path)
 	}
-	if rel, err := filepath.Rel(abs, env.Store); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+	if inside(abs, env.Store) {
 		return Entry{}, "", fmt.Errorf("%s contains the Store", path)
 	}
 	for _, o := range m.Entries {
@@ -88,10 +84,8 @@ func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, 
 		}
 	}
 
-	for _, t := range tags {
-		if !ValidTag(t) {
-			return Entry{}, "", fmt.Errorf("tag %q must use only a-z, 0-9 and -", t)
-		}
+	if err := CheckTags(tags); err != nil {
+		return Entry{}, "", err
 	}
 	tags = append(slices.Clone(tags), env.OS)
 	slices.Sort(tags)

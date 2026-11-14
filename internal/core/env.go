@@ -52,13 +52,19 @@ func (e Env) StorePath(en Entry) string {
 	return filepath.Join(e.Store, en.ID+"-"+filepath.Base(en.Target))
 }
 
+// inside reports whether path is dir or lies under it. Both must be absolute.
+func inside(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, "../")
+}
+
 // Contract turns an absolute path into its ~ form. It reports false for a
 // path outside Home.
 func (e Env) Contract(path string) (string, bool) {
-	rel, err := filepath.Rel(e.Home, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, "../") {
+	if !inside(e.Home, path) {
 		return "", false
 	}
+	rel, _ := filepath.Rel(e.Home, path)
 	if rel == "." {
 		return "~", true
 	}

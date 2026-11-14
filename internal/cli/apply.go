@@ -33,11 +33,7 @@ func newApplyCmd() *cobra.Command {
 }
 
 func runApply(w io.Writer, tags []string, backup, overwrite bool) error {
-	env, err := core.LoadEnv()
-	if err != nil {
-		return err
-	}
-	m, err := core.Load(env.Store)
+	env, m, err := core.Open()
 	if err != nil {
 		return err
 	}

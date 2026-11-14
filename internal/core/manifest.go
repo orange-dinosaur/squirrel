@@ -121,6 +121,16 @@ func (m *Manifest) Save(store string) error {
 	return os.Rename(f.Name(), filepath.Join(store, manifestName))
 }
 
+// Open finds the Store and loads its Manifest.
+func Open() (Env, *Manifest, error) {
+	env, err := LoadEnv()
+	if err != nil {
+		return env, nil, err
+	}
+	m, err := Load(env.Store)
+	return env, m, err
+}
+
 // EntryTargets names each Store path by what it holds: the Manifest file is
 // "the Manifest", a path under an Entry's Store item is that Entry's target,
 // and anything else stays as it is. No name appears twice.
