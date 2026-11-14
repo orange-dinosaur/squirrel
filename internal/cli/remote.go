@@ -80,13 +80,18 @@ func runRemote(w io.Writer) error {
 	if err != nil && s.URL == "" {
 		return err
 	}
-	status := syncStatus(s)
+	rows := [][]string{{"Store", storeName(env)}}
 	if err != nil {
-		status = "unknown, could not reach the Remote"
+		reason, _, _ := strings.Cut(err.Error(), "\n")
+		rows = append(rows, []string{"Status", "unknown, could not reach the Remote"}, []string{"Reason", reason})
+	} else {
+		rows = append(rows, []string{"Status", syncStatus(s)})
 	}
-	rows := [][]string{{"Store", storeName(env)}, {"Status", status}}
 	if len(s.Dirty) > 0 {
 		rows = append(rows, []string{"Not pushed", strings.Join(entryNames(env, s.Dirty), ", ")})
+	}
+	if len(s.Ignored) > 0 {
+		rows = append(rows, []string{"Not synced", strings.Join(entryNames(env, s.Ignored), ", ") + " (ignored by git)"})
 	}
 	printTable(w, []string{"Remote", s.URL}, rows, -1, 0)
 	return nil

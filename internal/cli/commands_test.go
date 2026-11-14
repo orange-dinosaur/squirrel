@@ -34,6 +34,19 @@ func squirrel(t *testing.T, args ...string) (out, errText string) {
 	return clean(b.String()), clean(errText)
 }
 
+// cliEnv gives the test its own HOME and Store, and git a config with an identity.
+func cliEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SQUIRREL_STORE", "")
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	if err := os.WriteFile(cfg, []byte("[user]\n\tname = Test\n\temail = test@example.com\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+}
+
 func mustRun(t *testing.T, args ...string) {
 	t.Helper()
 	if out, err := squirrel(t, args...); err != "" {
@@ -125,14 +138,7 @@ func TestCommands(t *testing.T) {
 			want: "LINKED  ~/.zshrc  old one deleted\n1 linked\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			t.Setenv("SQUIRREL_STORE", "")
-			cfg := filepath.Join(t.TempDir(), "gitconfig")
-			if err := os.WriteFile(cfg, []byte("[user]\n\tname = Test\n\temail = test@example.com\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			t.Setenv("GIT_CONFIG_GLOBAL", cfg)
-			t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+			cliEnv(t)
 			if c.setup != nil {
 				c.setup(t)
 			}

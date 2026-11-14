@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/BurntSushi/toml"
 )
 
 // RemoteAddResult says what connecting a Remote did.
@@ -59,8 +57,7 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 		if origin == url {
 			return RemoteUnchanged, nil
 		}
-		if _, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD"); isRepo && noHead == nil &&
-			sharesHistory(store, url) == nil {
+		if isRepo && hasRef(store, "HEAD") && sharesHistory(store, url) == nil {
 			// Reconnecting after a remove: the Store kept its history.
 			if _, err := git(store, "remote", "add", "origin", url); err != nil {
 				return 0, err
@@ -155,8 +152,7 @@ func RemoteSetURL(env Env, url string) (old, now string, err error) {
 			return "", "", errNoMain
 		}
 	}
-	_, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD")
-	if refs != "" && noHead == nil {
+	if refs != "" && hasRef(store, "HEAD") {
 		if err := sharesHistory(store, url); err != nil {
 			return "", "", err
 		}
@@ -191,13 +187,6 @@ func sharesHistory(store, url string) error {
 // ErrNoRemote is returned by commands that need a Remote when the Store has none.
 var ErrNoRemote = errors.New("the Store has no Remote: run squirrel remote add <url> first")
 
-// DirtyError lists the Store paths that changed since the last commit.
-type DirtyError struct{ Paths []string }
-
-func (e DirtyError) Error() string {
-	return "the Store has changes that are not pushed"
-}
-
 // requireRemote returns the Remote's URL, or ErrNoRemote unless the Store is
 // a git repo with an origin. The .git check stops git from finding a repo
 // above the Store.
@@ -220,11 +209,6 @@ func requireRemote(store string) (string, error) {
 func HasRemote(env Env) bool {
 	_, err := requireRemote(env.Store)
 	return err == nil
-}
-
-// dirtyPaths lists the Store paths that changed since the last commit.
-func dirtyPaths(store string) ([]string, error) {
-	return statusPaths(store, "")
 }
 
 // statusPaths lists the paths git status reports with the two-letter code
@@ -263,192 +247,10 @@ func nulPaths(out string) []string {
 	return paths
 }
 
-// RemoteStatus is how the Store stands against its Remote.
-type RemoteStatus struct {
-	URL           string
-	Ahead, Behind int      // commits only the Store has, and only the Remote has
-	Dirty         []string // Store paths changed since the last commit
-	Ignored       []string // Store paths git ignores, so they never reach the Remote
-}
-
-// RemoteState fetches and compares the Store with its Remote.
-func RemoteState(env Env) (RemoteStatus, error) {
-	var s RemoteStatus
-	store := env.Store
-	url, err := requireRemote(store)
-	if err != nil {
-		return s, err
-	}
-	s.URL = url
-	if s.Dirty, err = dirtyPaths(store); err != nil {
-		return s, err
-	}
-	if s.Ignored, err = statusPaths(store, "!!", "--ignored"); err != nil {
-		return s, err
-	}
-	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
-		return s, err
-	}
-	_, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD")
-	_, noRemote := git(store, "rev-parse", "--verify", "-q", "origin/main")
-	var counts string
-	switch {
-	case noHead == nil && noRemote == nil:
-		counts, err = git(store, "rev-list", "--left-right", "--count", "HEAD...origin/main")
-	case noHead == nil:
-		counts, err = git(store, "rev-list", "--count", "HEAD")
-	case noRemote == nil:
-		counts, err = git(store, "rev-list", "--count", "origin/main")
-		counts = "0 " + counts
-	}
-	fmt.Sscan(counts, &s.Ahead, &s.Behind)
-	return s, err
-}
-
-// PullResult says what Pull did.
-type PullResult struct {
-	Moved bool    // the Store fast-forwarded to the Remote
-	Kept  []Entry // linked Entries the Remote no longer has, now real copies
-}
-
-// Pull fast-forwards the Store to the Remote. It refuses when the Store has
-// changes of its own, and never merges.
-func Pull(env Env) (PullResult, error) {
-	var res PullResult
-	store := env.Store
-	if _, err := requireRemote(store); err != nil {
-		return res, err
-	}
-	if err := lockStore(store); err != nil {
-		return res, err
-	}
-	paths, err := dirtyPaths(store)
-	if err != nil {
-		return res, err
-	}
-	if paths != nil {
-		return res, DirtyError{paths}
-	}
-	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
-		return res, err
-	}
-	if _, err := git(store, "rev-parse", "--verify", "-q", "origin/main"); err != nil {
-		return res, nil // the Remote is still empty
-	}
-	if _, err := git(store, "rev-parse", "--verify", "-q", "HEAD"); err == nil {
-		counts, err := git(store, "rev-list", "--left-right", "--count", "HEAD...origin/main")
-		if err != nil {
-			return res, err
-		}
-		var ahead, behind int
-		fmt.Sscan(counts, &ahead, &behind)
-		if behind == 0 {
-			return res, nil
-		}
-		if ahead > 0 {
-			return res, errors.New("the Store and the Remote have both changed: run squirrel push to combine them")
-		}
-	}
-	if res.Kept, err = keepVanished(env); err != nil {
-		return res, err
-	}
-	if _, err := git(store, "merge", "-q", "--ff-only", "origin/main"); err != nil {
-		return res, err
-	}
-	res.Moved = true
-	return res, nil
-}
-
-// keepVanished turns every linked Entry that the incoming Manifest no longer
-// has into a real copy, before the Store item it points at disappears.
-func keepVanished(env Env) ([]Entry, error) {
-	current, err := Load(env.Store)
-	if err != nil {
-		return nil, err
-	}
-	var incoming Manifest
-	if text, err := git(env.Store, "show", "origin/main:"+manifestName); err == nil {
-		if _, err := toml.Decode(text, &incoming); err != nil {
-			return nil, fmt.Errorf("the Remote's Manifest does not parse: %w", err)
-		}
-	}
-	var kept []Entry
-	for _, e := range current.Entries {
-		if !isLink(env, e) || slices.ContainsFunc(incoming.Entries, func(i Entry) bool { return i.ID == e.ID }) {
-			continue
-		}
-		if err := unmanage(env, e); err != nil {
-			return kept, err
-		}
-		kept = append(kept, e)
-	}
-	return kept, nil
-}
-
-// ClashError lists the Store paths that both the Store and the Remote changed.
-type ClashError struct{ Paths []string }
-
-func (e ClashError) Error() string {
-	return "the Store and the Remote changed the same files"
-}
-
-// PushResult says what Push did.
-type PushResult struct {
-	Pulled bool    // the Remote had commits the Store lacked, and the Store took them in
-	Pushed bool    // the Store's commits went up to the Remote
-	Kept   []Entry // linked Entries the Remote no longer has, now real copies
-}
-
-// Push commits the Store's changes, rebases them onto the Remote, and pushes.
-// On a clash it aborts the rebase and returns a ClashError.
-func Push(env Env) (PushResult, error) {
-	var res PushResult
-	store := env.Store
-	if _, err := requireRemote(store); err != nil {
-		return res, err
-	}
-	if _, err := commitAll(store); err != nil {
-		return res, err
-	}
-	if _, err := git(store, "rev-parse", "--verify", "-q", "HEAD"); err != nil {
-		return res, nil // nothing was ever committed
-	}
-	if _, err := git(store, "fetch", "-q", "origin"); err != nil {
-		return res, err
-	}
-	ahead := "HEAD"
-	if _, err := git(store, "rev-parse", "--verify", "-q", "origin/main"); err == nil {
-		ahead = "origin/main..HEAD"
-		behind, err := git(store, "rev-list", "--count", "HEAD..origin/main")
-		if err != nil {
-			return res, err
-		}
-		if behind != "0" {
-			if res.Kept, err = keepVanished(env); err != nil {
-				return res, err
-			}
-			if _, err := git(store, "rebase", "-q", "origin/main"); err != nil {
-				out, _ := git(store, "diff", "--name-only", "-z", "--diff-filter=U")
-				if _, abortErr := git(store, "rebase", "--abort"); abortErr != nil {
-					return res, abortErr
-				}
-				clashes := nulPaths(out)
-				if clashes == nil {
-					return res, err
-				}
-				return res, ClashError{clashes}
-			}
-			res.Pulled = true
-		}
-	}
-	if n, err := git(store, "rev-list", "--count", ahead); err != nil || n == "0" {
-		return res, err
-	}
-	if _, err := git(store, "push", "-q", "-u", "origin", "HEAD:main"); err != nil {
-		return res, err
-	}
-	res.Pushed = true
-	return res, nil
+// hasRef reports whether ref names a commit in store.
+func hasRef(store, ref string) bool {
+	_, err := git(store, "rev-parse", "--verify", "-q", ref)
+	return err == nil
 }
 
 // isEmptyDir reports whether dir is missing or holds nothing besides .git.
