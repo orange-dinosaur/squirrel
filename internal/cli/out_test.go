@@ -43,12 +43,21 @@ func TestPrintStatusRowsPlain(t *testing.T) {
 
 func TestPrintTablePlain(t *testing.T) {
 	var b bytes.Buffer
-	printTable(&b, []string{"TAG", "ENTRIES"}, [][]string{{"linux", "12"}, {"shell", "3"}})
+	printTable(&b, []string{"TAG", "ENTRIES"}, [][]string{{"linux", "12"}, {"shell", "3"}}, -1)
 	want := "TAG    ENTRIES\n" +
 		"linux  12\n" +
 		"shell  3\n"
 	if got := b.String(); got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestPrintLinesCleansControlCharacters(t *testing.T) {
+	var b bytes.Buffer
+	printLines(&b, line{warn, "skipped", "~/.z\x1b[2J\nERROR  fake", []string{"git: \x1b]0;owned\x07"}})
+	want := "SKIPPED  ~/.z?[2J?ERROR  fake  git: ?]0;owned?\n"
+	if got := b.String(); got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

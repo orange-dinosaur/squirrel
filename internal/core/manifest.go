@@ -120,3 +120,28 @@ func (m *Manifest) Save(store string) error {
 	}
 	return os.Rename(f.Name(), filepath.Join(store, manifestName))
 }
+
+// EntryTargets names each Store path by what it holds: the Manifest file is
+// "the Manifest", a path under an Entry's Store item is that Entry's target,
+// and anything else stays as it is. No name appears twice.
+func EntryTargets(m *Manifest, storePaths []string) []string {
+	targets := map[string]string{}
+	for _, e := range m.Entries {
+		targets[e.ID] = e.Target
+	}
+	var names []string
+	for _, p := range storePaths {
+		id, _, _ := strings.Cut(p, "-")
+		name := p
+		switch {
+		case p == manifestName:
+			name = "the Manifest"
+		case targets[id] != "":
+			name = targets[id]
+		}
+		if !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names
+}

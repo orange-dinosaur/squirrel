@@ -88,7 +88,7 @@ func runRemote(w io.Writer) error {
 	if len(s.Dirty) > 0 {
 		rows = append(rows, []string{"Not pushed", strings.Join(entryNames(env, s.Dirty), ", ")})
 	}
-	printTable(w, []string{"Remote", s.URL}, rows, 0)
+	printTable(w, []string{"Remote", s.URL}, rows, -1, 0)
 	return nil
 }
 

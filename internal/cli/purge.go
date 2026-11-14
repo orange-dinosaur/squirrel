@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"io"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -66,6 +67,9 @@ func runPurge(w io.Writer, args []string, yes bool) error {
 		}
 	}
 	err = core.Purge(env, m, entries)
+	if err != nil && slices.ContainsFunc(m.Entries, func(e core.Entry) bool { return e.ID == entries[0].ID }) {
+		return err // the Manifest was not saved, so nothing was purged
+	}
 	var lines []line
 	for _, e := range entries {
 		lines = append(lines, line{noop, "purged", e.Target, []string{e.ID}})

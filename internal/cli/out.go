@@ -8,11 +8,13 @@ import (
 	"slices"
 	"strings"
 	"text/tabwriter"
+	"unicode"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/term"
+	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/orange-dinosaur/squirrel/internal/style"
 	"github.com/spf13/cobra"
 )
@@ -55,9 +57,41 @@ type hintError struct {
 func (e hintError) Error() string { return e.err.Error() }
 func (e hintError) Unwrap() error { return e.err }
 
+// storeName is the Store's path with the home directory as ~.
+func storeName(env core.Env) string {
+	if s, ok := env.Contract(env.Store); ok {
+		return s
+	}
+	return env.Store
+}
+
+func dirtyHint(env core.Env, d core.DirtyError) error {
+	return hintError{"run squirrel push, or set them aside with git -C " + storeName(env) + " stash -u", entryNames(env, d.Paths), d}
+}
+
+// entryNames names each Store path by the Entry it belongs to.
+func entryNames(env core.Env, paths []string) []string {
+	m, err := core.Load(env.Store)
+	if err != nil {
+		return paths
+	}
+	return core.EntryTargets(m, paths)
+}
+
 // usageError is a mistake in how cmd was typed, so its help is worth a look.
 func usageError(cmd *cobra.Command, err error) error {
 	return hintError{hint: "try " + cmd.CommandPath() + " --help", err: err}
+}
+
+// clean replaces control characters with ?, so a file name, Manifest value or git message cannot
+// move the cursor, retitle the terminal or start a fake line.
+func clean(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return '?'
+		}
+		return r
+	}, s)
 }
 
 // printErr prints " ERROR  message", plus the details and hint of a hintError.
@@ -66,7 +100,7 @@ func printErr(w io.Writer, err error) {
 	hint := ""
 	if he, ok := errors.AsType[hintError](err); ok {
 		for _, d := range he.details {
-			fmt.Fprintln(w, "  "+d)
+			fmt.Fprintln(w, "  "+clean(d))
 		}
 		hint = he.hint
 	} else if strings.HasPrefix(err.Error(), "unknown command") {
@@ -94,8 +128,23 @@ func (l line) badgeWord() (word, target string) {
 
 // printTable draws a rounded box with a line between rows, shrunk and wrapped to the terminal
 // when it is too wide. Plain
-// output gets aligned columns under a plain header instead. dimCols are drawn faint.
-func printTable(w io.Writer, headers []string, rows [][]string, dimCols ...int) {
+// output gets aligned columns under a plain header instead. dimCols are drawn faint. Every cell
+// is cleaned except those in column badgeCol, which squirrel styles itself (-1 for none).
+func printTable(w io.Writer, headers []string, rows [][]string, badgeCol int, dimCols ...int) {
+	headers = slices.Clone(headers)
+	for i := range headers {
+		headers[i] = clean(headers[i])
+	}
+	cleaned := make([][]string, len(rows))
+	for i, r := range rows {
+		cleaned[i] = slices.Clone(r)
+		for j := range r {
+			if j != badgeCol {
+				cleaned[i][j] = clean(r[j])
+			}
+		}
+	}
+	rows = cleaned
 	if !styled(w) {
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 		for _, r := range append([][]string{headers}, rows...) {
@@ -137,6 +186,7 @@ func printLines(w io.Writer, lines ...line) {
 	}
 	for _, l := range lines {
 		word, target := l.badgeWord()
+		target = clean(target)
 		if color {
 			word = style.Badge(l.mark, word, width)
 		} else {
@@ -147,6 +197,7 @@ func printLines(w io.Writer, lines ...line) {
 			if x == "" {
 				continue
 			}
+			x = clean(x)
 			if color {
 				x = dim.Render(x)
 			}

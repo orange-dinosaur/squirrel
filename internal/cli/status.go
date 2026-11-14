@@ -66,5 +66,5 @@ func printStatusRows(w io.Writer, rows []core.Row) {
 		}
 		cells[i] = []string{state, r.Entry.Target, strings.Join(r.Entry.Tags, " "), r.Entry.ID}
 	}
-	printTable(w, []string{"STATE", "TARGET", "TAGS", "ID"}, cells, 2, 3)
+	printTable(w, []string{"STATE", "TARGET", "TAGS", "ID"}, cells, 0, 2, 3)
 }

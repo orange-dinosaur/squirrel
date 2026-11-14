@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"io"
-	"strings"
 
 	"github.com/orange-dinosaur/squirrel/internal/core"
 	"github.com/spf13/cobra"
@@ -56,39 +55,4 @@ func printKept(w io.Writer, kept []core.Entry) {
 		lines = append(lines, line{warn, "kept", e.Target, []string{"as a real copy, it was purged on another machine"}})
 	}
 	printLines(w, lines...)
-}
-
-// storeName is the Store's path with the home directory as ~.
-func storeName(env core.Env) string {
-	if s, ok := env.Contract(env.Store); ok {
-		return s
-	}
-	return env.Store
-}
-
-func dirtyHint(env core.Env, d core.DirtyError) error {
-	return hintError{"run squirrel push, or set them aside with git -C " + storeName(env) + " stash -u", entryNames(env, d.Paths), d}
-}
-
-// entryNames names each Store path by the Entry it belongs to.
-func entryNames(env core.Env, paths []string) []string {
-	targets := map[string]string{}
-	if m, err := core.Load(env.Store); err == nil {
-		for _, e := range m.Entries {
-			targets[e.ID] = e.Target
-		}
-	}
-	var details []string
-	for _, p := range paths {
-		id, _, _ := strings.Cut(p, "-")
-		switch {
-		case p == "squirrel.toml":
-			details = append(details, "the Manifest")
-		case targets[id] != "":
-			details = append(details, targets[id])
-		default:
-			details = append(details, p)
-		}
-	}
-	return details
 }

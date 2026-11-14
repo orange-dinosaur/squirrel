@@ -61,7 +61,7 @@ func runApply(w io.Writer, tags []string, backup, overwrite bool) error {
 			if len(plan.Conflicts) == 1 {
 				n = "1 Conflict needs"
 			}
-			return fmt.Errorf("%s a decision: run apply in a terminal, or pass --backup or --overwrite", n)
+			return fmt.Errorf("%s a decision: run squirrel apply in a terminal, or squirrel apply --backup or --overwrite", n)
 		}
 		for _, c := range plan.Conflicts {
 			r, err := askResolution(c)

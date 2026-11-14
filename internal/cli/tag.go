@@ -134,6 +134,6 @@ func printTags(out io.Writer) error {
 	for i, tc := range tags {
 		rows[i] = []string{tc.Tag, strconv.Itoa(tc.Count)}
 	}
-	printTable(out, []string{"TAG", "ENTRIES"}, rows)
+	printTable(out, []string{"TAG", "ENTRIES"}, rows, -1)
 	return nil
 }

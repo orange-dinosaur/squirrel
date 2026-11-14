@@ -140,3 +140,16 @@ func TestLoadWithoutTagList(t *testing.T) {
 		t.Errorf("Tags = %v, want %v", m.Tags, want)
 	}
 }
+
+func TestEntryTargets(t *testing.T) {
+	m := &Manifest{Entries: []Entry{{ID: "1a2b3c4d", Target: "~/.config/nvim"}}}
+	got := EntryTargets(m, []string{
+		"squirrel.toml",
+		"1a2b3c4d-nvim/a",
+		"1a2b3c4d-nvim/lua/b",
+		"stray.txt",
+	})
+	if want := []string{"the Manifest", "~/.config/nvim", "stray.txt"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("EntryTargets = %q, want %q", got, want)
+	}
+}

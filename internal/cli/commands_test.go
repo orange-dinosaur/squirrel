@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/orange-dinosaur/squirrel/internal/core"
@@ -71,11 +72,12 @@ func TestCommands(t *testing.T) {
 		t.Fatalf("%v: %s", err, out)
 	}
 	for _, c := range []struct {
-		name    string
-		setup   func(t *testing.T)
-		args    []string
-		want    string
-		wantErr string
+		name      string
+		setup     func(t *testing.T)
+		args      []string
+		want      string
+		wantErr   string
+		errSuffix bool // wantErr is only the end of the error, which holds a temp file name
 	}{
 		{name: "add then status", setup: added, args: []string{"status"},
 			want: "STATE   TARGET    TAGS   ID\nLINKED  ~/.zshrc  OS  ID\n"},
@@ -96,6 +98,15 @@ func TestCommands(t *testing.T) {
 			wantErr: "purging asks first: run purge in a terminal, or pass --yes to purge without asking"},
 		{name: "purge --yes", setup: func(t *testing.T) { added(t); mustRun(t, "remove", "~/.zshrc") },
 			args: []string{"purge", "--yes"}, want: "PURGED  ~/.zshrc  ID\n"},
+		{name: "purge read-only Store", setup: func(t *testing.T) {
+			added(t)
+			mustRun(t, "remove", "~/.zshrc")
+			store := filepath.Join(os.Getenv("HOME"), ".squirrel")
+			if err := os.Chmod(store, 0o500); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { os.Chmod(store, 0o700) })
+		}, args: []string{"purge", "--yes"}, wantErr: ": permission denied", errSuffix: true},
 		{name: "tags rm --untag", setup: tagged, args: []string{"tags", "rm", "work", "--untag"},
 			want: "UNTAGGED  ~/.zshrc  work\nDELETED   work\n"},
 		{name: "tags", setup: tagged, args: []string{"tags"},
@@ -107,7 +118,7 @@ func TestCommands(t *testing.T) {
 		{name: "pull no Remote", args: []string{"pull"}, wantErr: core.ErrNoRemote.Error()},
 		{name: "push no Remote", args: []string{"push"}, wantErr: core.ErrNoRemote.Error()},
 		{name: "apply Conflict", setup: conflict, args: []string{"apply"},
-			wantErr: "1 Conflict needs a decision: run apply in a terminal, or pass --backup or --overwrite"},
+			wantErr: "1 Conflict needs a decision: run squirrel apply in a terminal, or squirrel apply --backup or --overwrite"},
 		{name: "apply --backup", setup: conflict, args: []string{"apply", "--backup"},
 			want: "LINKED  ~/.zshrc  old one saved as ~/.zshrc.squirrel-backup\n1 linked\n"},
 		{name: "apply --overwrite", setup: conflict, args: []string{"apply", "--overwrite"},
@@ -126,7 +137,8 @@ func TestCommands(t *testing.T) {
 				c.setup(t)
 			}
 			got, gotErr := squirrel(t, c.args...)
-			if got != c.want || gotErr != c.wantErr {
+			errOK := gotErr == c.wantErr || c.errSuffix && strings.HasSuffix(gotErr, c.wantErr)
+			if got != c.want || !errOK {
 				t.Errorf("%v:\n got  %q, err %q\n want %q, err %q", c.args, got, gotErr, c.want, c.wantErr)
 			}
 		})
