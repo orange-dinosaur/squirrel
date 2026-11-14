@@ -14,7 +14,7 @@ type Candidate struct {
 
 const searchDepth = 4 // a hidden item in home is depth 1
 
-var searchSkip = map[string]bool{".git": true, "node_modules": true, ".cache": true, ".Trash": true}
+var searchSkip = map[string]bool{".git": true, "node_modules": true, ".cache": true, ".Trash": true, "Trash": true}
 
 // SearchCandidates lists the hidden items in home and what lies inside them,
 // down to searchDepth, keeping only what Add would accept. It never descends

@@ -24,6 +24,7 @@ func Add(env Env, m *Manifest, path string, tags []string) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
+	e.ID = newID(m)
 
 	if err := os.MkdirAll(env.Store, 0o700); err != nil {
 		return Entry{}, err
@@ -94,7 +95,7 @@ func checkAdd(env Env, m *Manifest, path string, tags []string) (Entry, string, 
 	}
 	tags = append(slices.Clone(tags), env.OS)
 	slices.Sort(tags)
-	e := Entry{ID: newID(m), Target: target, Tags: slices.Compact(tags)}
+	e := Entry{Target: target, Tags: slices.Compact(tags)}
 	if id, ok := m.Clash(e); ok {
 		return Entry{}, "", fmt.Errorf("%s is already managed by Entry %s", target, id)
 	}
