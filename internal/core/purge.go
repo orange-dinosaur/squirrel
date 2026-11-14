@@ -35,7 +35,7 @@ func PurgeTargets(env Env, m *Manifest, args []string) ([]Entry, error) {
 		}
 		target, err := env.targetOf(arg)
 		if err != nil {
-			return nil, err
+			return nil, bareMiss(arg, err)
 		}
 		found := false
 		for _, e := range m.Entries {
@@ -45,7 +45,7 @@ func PurgeTargets(env Env, m *Manifest, args []string) ([]Entry, error) {
 			}
 		}
 		if !found {
-			return nil, fmt.Errorf("no removed Entry for %s", target)
+			return nil, bareMiss(arg, fmt.Errorf("no removed Entry for %s", target))
 		}
 	}
 	for _, e := range out {

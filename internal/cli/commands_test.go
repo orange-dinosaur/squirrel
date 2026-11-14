@@ -120,6 +120,12 @@ func TestCommands(t *testing.T) {
 			}
 			t.Cleanup(func() { os.Chmod(store, 0o700) })
 		}, args: []string{"purge", "--yes"}, wantErr: ": permission denied", errSuffix: true},
+		{name: "status unknown tag", setup: added, args: []string{"status", "nosuchtag"},
+			wantErr: `no Tag "nosuchtag"`},
+		{name: "apply unknown tag", setup: added, args: []string{"apply", "nosuchtag"},
+			wantErr: `no Tag "nosuchtag"`},
+		{name: "tags remove", setup: tagged, args: []string{"tags", "remove", "work", "--untag"},
+			want: "UNTAGGED  ~/.zshrc  work\nDELETED   work\n"},
 		{name: "tags rm --untag", setup: tagged, args: []string{"tags", "rm", "work", "--untag"},
 			want: "UNTAGGED  ~/.zshrc  work\nDELETED   work\n"},
 		{name: "tags", setup: tagged, args: []string{"tags"},

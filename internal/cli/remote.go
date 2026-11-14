@@ -123,20 +123,19 @@ func commits(n int) string {
 }
 
 func newRemoteAddCmd() *cobra.Command {
-	var backup, overwrite bool
+	var f conflictFlags
 	cmd := &cobra.Command{
 		Use:   "add <url>",
 		Short: "Push the Store to an empty Remote, or fill an empty Store from the Remote",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if backup && overwrite {
-				return errors.New("--backup and --overwrite cannot be used together")
+			if err := f.check(); err != nil {
+				return err
 			}
-			return runRemoteAdd(cmd.OutOrStdout(), args[0], backup, overwrite)
+			return runRemoteAdd(cmd.OutOrStdout(), args[0], f.backup, f.overwrite)
 		},
 	}
-	cmd.Flags().BoolVar(&backup, "backup", false, "after a clone, resolve every Conflict by renaming it to <target>.squirrel-backup")
-	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "after a clone, resolve every Conflict by deleting what is in the way")
+	f.register(cmd, "after a clone, ")
 	return cmd
 }
 

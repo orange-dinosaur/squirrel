@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 )
 
 // OSTags are the reserved Tags that limit an Entry to an OS.
@@ -60,15 +61,24 @@ func (m *Manifest) Find(env Env, arg string) (int, error) {
 	}
 	target, err := env.targetOf(arg)
 	if err != nil {
-		return -1, err
+		return -1, bareMiss(arg, err)
 	}
 	i := slices.IndexFunc(m.Entries, func(e Entry) bool {
 		return e.Target == target && !e.Removed && e.AppliesOn(env.OS)
 	})
 	if i < 0 {
-		return -1, fmt.Errorf("no Entry for %s on %s", target, env.OS)
+		return -1, bareMiss(arg, fmt.Errorf("no Entry for %s on %s", target, env.OS))
 	}
 	return i, nil
+}
+
+// bareMiss explains a failed lookup. A bare word such as "fdedb1e" was most
+// likely a mistyped ID, so it gets a message that says so instead of err.
+func bareMiss(arg string, err error) error {
+	if arg != "" && !strings.Contains(arg, "/") && !strings.HasPrefix(arg, "~") && !strings.HasPrefix(arg, ".") {
+		return fmt.Errorf("no Entry with ID or path %s", arg)
+	}
+	return err
 }
 
 // targetOf turns a path argument into its ~ form, resolving relative paths

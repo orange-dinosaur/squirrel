@@ -61,7 +61,7 @@ func completeTags(cmd *cobra.Command, args []string, _ string) ([]string, cobra.
 	return out, noFiles
 }
 
-// completeDeletableTags offers the Tags tags rm can delete, for its one argument.
+// completeDeletableTags offers the Tags tags remove can delete, for its one argument.
 func completeDeletableTags(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, noFiles

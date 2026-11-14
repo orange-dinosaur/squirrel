@@ -3,9 +3,11 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/x/term"
@@ -78,8 +80,12 @@ func newRootCmd() *cobra.Command {
 	for _, c := range cmds {
 		if args := c.Args; args != nil {
 			c.Args = func(c *cobra.Command, a []string) error {
-				if err := args(c, a); err != nil {
-					return usageError(c, err)
+				err := args(c, a)
+				if err != nil && !c.HasParent() {
+					return usageError(c, err) // cobra's "unknown command" names the typo
+				}
+				if err != nil {
+					return usageError(c, fmt.Errorf("usage: %s", strings.TrimSuffix(c.UseLine(), " [flags]")))
 				}
 				return nil
 			}

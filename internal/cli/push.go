@@ -9,20 +9,19 @@ import (
 )
 
 func newPushCmd() *cobra.Command {
-	var backup, overwrite bool
+	var f conflictFlags
 	cmd := &cobra.Command{
 		Use:   "push",
 		Short: "Send the Store's changes to the Remote, taking in the Remote's first",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if backup && overwrite {
-				return errors.New("--backup and --overwrite cannot be used together")
+			if err := f.check(); err != nil {
+				return err
 			}
-			return runPush(cmd.OutOrStdout(), backup, overwrite)
+			return runPush(cmd.OutOrStdout(), f.backup, f.overwrite)
 		},
 	}
-	cmd.Flags().BoolVar(&backup, "backup", false, "resolve every Conflict by renaming it to <target>.squirrel-backup")
-	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "resolve every Conflict by deleting what is in the way")
+	f.register(cmd, "")
 	return cmd
 }
 

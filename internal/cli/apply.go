@@ -14,28 +14,46 @@ import (
 
 const quit core.Resolution = "quit"
 
+// conflictFlags are --backup and --overwrite, for every command that ends by running apply.
+type conflictFlags struct{ backup, overwrite bool }
+
+// register adds both flags to cmd. prefix starts their help text, as in "after a clone, ".
+func (f *conflictFlags) register(cmd *cobra.Command, prefix string) {
+	cmd.Flags().BoolVar(&f.backup, "backup", false, prefix+"resolve every Conflict by renaming it to <target>.squirrel-backup")
+	cmd.Flags().BoolVar(&f.overwrite, "overwrite", false, prefix+"resolve every Conflict by deleting what is in the way")
+}
+
+func (f *conflictFlags) check() error {
+	if f.backup && f.overwrite {
+		return errors.New("--backup and --overwrite cannot be used together")
+	}
+	return nil
+}
+
 func newApplyCmd() *cobra.Command {
-	var backup, overwrite bool
+	var f conflictFlags
 	cmd := &cobra.Command{
 		Use:   "apply [tags...]",
 		Short: "Link every Entry for this OS, or those with any of the given Tags",
 
 		ValidArgsFunction: completeTags,
 		RunE: func(cmd *cobra.Command, tags []string) error {
-			if backup && overwrite {
-				return errors.New("--backup and --overwrite cannot be used together")
+			if err := f.check(); err != nil {
+				return err
 			}
-			return runApply(cmd.OutOrStdout(), tags, backup, overwrite)
+			return runApply(cmd.OutOrStdout(), tags, f.backup, f.overwrite)
 		},
 	}
-	cmd.Flags().BoolVar(&backup, "backup", false, "resolve every Conflict by renaming it to <target>.squirrel-backup")
-	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "resolve every Conflict by deleting what is in the way")
+	f.register(cmd, "")
 	return cmd
 }
 
 func runApply(w io.Writer, tags []string, backup, overwrite bool) error {
 	env, m, err := core.Open()
 	if err != nil {
+		return err
+	}
+	if err := knownTags(m, tags); err != nil {
 		return err
 	}
 	plan, err := core.PlanApply(env, m, tags)

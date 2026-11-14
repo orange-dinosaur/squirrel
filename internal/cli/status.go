@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -35,6 +36,9 @@ func printStatus(w io.Writer, tags []string, all bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if err := knownTags(m, tags); err != nil {
+		return false, err
+	}
 	rows, err := core.Status(env, m, tags, all)
 	if err != nil {
 		return false, err
@@ -45,6 +49,17 @@ func printStatus(w io.Writer, tags []string, all bool) (bool, error) {
 	}
 	printStatusRows(w, rows)
 	return !slices.ContainsFunc(rows, func(r core.Row) bool { return !r.OK() }), nil
+}
+
+// knownTags refuses the first of tags that the Manifest has never used.
+func knownTags(m *core.Manifest, tags []string) error {
+	known := core.Tags(m)
+	for _, t := range tags {
+		if !slices.ContainsFunc(known, func(tc core.TagCount) bool { return tc.Tag == t }) {
+			return fmt.Errorf("no Tag %q", t)
+		}
+	}
+	return nil
 }
 
 // printStatusRows prints one row per Entry: state, target, Tags and ID.

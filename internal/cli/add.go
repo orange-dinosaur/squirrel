@@ -28,7 +28,8 @@ func newAddCmd() *cobra.Command {
 			}
 			path, picked, err := menu.AskAdd(len(tags) == 0)
 			if errors.Is(err, huh.ErrUserAborted) {
-				return nil
+				printLines(cmd.OutOrStdout(), line{noop, "nothing added", "", nil})
+				return errQuiet
 			}
 			if err != nil {
 				return err

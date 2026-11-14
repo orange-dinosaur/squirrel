@@ -65,6 +65,17 @@ func TestFind(t *testing.T) {
 			t.Errorf("Find(%q) found an Entry, want an error", arg)
 		}
 	}
+
+	// A bare word is most likely a mistyped ID, wherever it is run from.
+	for _, dir := range []string{home, t.TempDir()} {
+		t.Chdir(dir)
+		if _, err := m.Find(env, "fdedb1e"); err == nil || err.Error() != "no Entry with ID or path fdedb1e" {
+			t.Errorf("Find(fdedb1e) in %s: %v", dir, err)
+		}
+		if _, err := PurgeTargets(env, m, []string{"fdedb1e"}); err == nil || err.Error() != "no Entry with ID or path fdedb1e" {
+			t.Errorf("PurgeTargets(fdedb1e) in %s: %v", dir, err)
+		}
+	}
 }
 
 func TestClash(t *testing.T) {

@@ -63,7 +63,8 @@ func newTagsCmd() *cobra.Command {
 	}
 	var untag bool
 	rm := &cobra.Command{
-		Use:               "rm <tag>",
+		Use:               "remove <tag>",
+		Aliases:           []string{"rm"},
 		Short:             "Forget a Tag",
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeDeletableTags,
@@ -91,7 +92,7 @@ func runDeleteTag(w io.Writer, tag string, untag bool) error {
 		for _, e := range ce.Entries {
 			details = append(details, fmt.Sprintf("%-*s  %s", width, e.Target, e.ID))
 		}
-		return hintError{"try squirrel tags rm " + tag + " --untag", details, err}
+		return hintError{"try squirrel tags remove " + tag + " --untag", details, err}
 	}
 	if err != nil {
 		return err
