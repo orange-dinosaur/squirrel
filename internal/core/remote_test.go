@@ -417,6 +417,24 @@ func TestPushClash(t *testing.T) {
 	}
 }
 
+func TestPushRebaseFailsWithoutClash(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	pushByHand(t, mac, "00000003-gitconfig", "Mac")
+	write(t, filepath.Join(linux.Store, "00000002-vimrc"), "Linux")
+	hook := filepath.Join(linux.Store, ".git", "hooks", "pre-rebase")
+	if err := os.WriteFile(hook, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Push(linux)
+	if _, clash := err.(ClashError); err == nil || clash || got.Pushed {
+		t.Fatalf("Push = %+v, %#v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(linux.Store, ".git", "rebase-merge")); err == nil {
+		t.Error("rebase left in progress")
+	}
+}
+
 func TestPushFirstToEmptyRemote(t *testing.T) {
 	gitTest(t)
 	env, url := testEnv(t), bareRemote(t)
@@ -605,6 +623,21 @@ func TestRemoteSetURL(t *testing.T) {
 	}
 	if got, err := Push(linux); !got.Pushed || err != nil {
 		t.Errorf("push to the new empty Remote: %+v, %v", got, err)
+	}
+}
+
+func TestRemoteSetURLNoCommit(t *testing.T) {
+	gitTest(t)
+	env := testEnv(t)
+	if _, err := RemoteAdd(env, bareRemote(t)); err != nil {
+		t.Fatal(err)
+	}
+	url := pushedRemote(t)
+	if _, now, err := RemoteSetURL(env, url); now != url || err != nil {
+		t.Fatalf("RemoteSetURL = %q, %v", now, err)
+	}
+	if got, _ := git(env.Store, "remote", "get-url", "origin"); got != url {
+		t.Errorf("origin = %q", got)
 	}
 }
 
