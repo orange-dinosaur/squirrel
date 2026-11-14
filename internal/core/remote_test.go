@@ -118,6 +118,42 @@ func TestRemoteRefusesDashURL(t *testing.T) {
 	}
 }
 
+func TestRemoteRefusesNoMainBranch(t *testing.T) {
+	gitTest(t)
+	url := filepath.Join(t.TempDir(), "m.git")
+	seed := filepath.Join(t.TempDir(), "seed")
+	write(t, filepath.Join(seed, "squirrel.toml"), "# m\n")
+	for _, args := range [][]string{
+		{"init", "-q", "--bare", "-b", "master", url},
+		{"-C", seed, "init", "-q", "-b", "master"},
+		{"-C", seed, "add", "-A"},
+		{"-C", seed, "commit", "-qm", "seed"},
+		{"-C", seed, "push", "-q", url, "master"},
+	} {
+		if _, err := git("", args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := "the Remote has no main branch: rename its branch to main, then run squirrel remote add again"
+
+	env := testEnv(t)
+	if _, err := RemoteAdd(env, url); err == nil || err.Error() != want {
+		t.Errorf("RemoteAdd: err = %v", err)
+	}
+	if _, err := os.Stat(env.Store); err == nil {
+		t.Error("RemoteAdd created a Store")
+	}
+
+	_, linux := twoMachines(t)
+	old, _ := git(linux.Store, "remote", "get-url", "origin")
+	if _, _, err := RemoteSetURL(linux, url); err == nil || err.Error() != want {
+		t.Errorf("RemoteSetURL: err = %v", err)
+	}
+	if now, _ := git(linux.Store, "remote", "get-url", "origin"); now != old {
+		t.Errorf("origin changed to %s", now)
+	}
+}
+
 func TestRemoteAddClones(t *testing.T) {
 	gitTest(t)
 	url := pushedRemote(t)

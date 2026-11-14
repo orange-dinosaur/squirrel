@@ -44,6 +44,11 @@ func RemoteAdd(env Env, url string) (RemoteAddResult, error) {
 	if err != nil {
 		return 0, err
 	}
+	if refs != "" && !slices.ContainsFunc(strings.Split(refs, "\n"), func(l string) bool {
+		return strings.HasSuffix(l, "\trefs/heads/main")
+	}) {
+		return 0, errNoMain
+	}
 	remoteEmpty := refs == ""
 	storeEmpty, err := isEmptyDir(store)
 	if err != nil {
@@ -143,6 +148,13 @@ func RemoteSetURL(env Env, url string) (old, now string, err error) {
 	if err != nil {
 		return "", "", err
 	}
+	if refs == "" {
+		if all, err := git("", "ls-remote", "--", url); err != nil {
+			return "", "", err
+		} else if all != "" {
+			return "", "", errNoMain
+		}
+	}
 	_, noHead := git(store, "rev-parse", "--verify", "-q", "HEAD")
 	if refs != "" && noHead == nil {
 		if err := sharesHistory(store, url); err != nil {
@@ -156,6 +168,10 @@ func RemoteSetURL(env Env, url string) (old, now string, err error) {
 	git(store, "fetch", "-q", "--prune", "origin")
 	return old, url, nil
 }
+
+// errNoMain is returned for a Remote that has branches but no main. squirrel
+// only ever syncs main.
+var errNoMain = errors.New("the Remote has no main branch: rename its branch to main, then run squirrel remote add again")
 
 // errDifferentStore is returned when a Remote's commits share no history with the Store.
 var errDifferentStore = errors.New("that Remote holds a different Store: run squirrel remote remove, then squirrel remote add <url>")
