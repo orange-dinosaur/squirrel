@@ -84,6 +84,7 @@ func TestLoadRejectsBadManifest(t *testing.T) {
 		{entry("aaaaaaaa", "~/x") + "tags = [\"BAD TAG\\u001b[31m\"]\n", `the Manifest has a bad tag "BAD TAG\x1b[31m": use only a-z, 0-9 and -`},
 		{"tags = [\"Work\"]\n" + entry("aaaaaaaa", "~/x"), `the Manifest has a bad tag "Work": use only a-z, 0-9 and -`},
 		{entry("aaaaaaaa", "~/x") + entry("bbbbbbbb", "~/x"), "the Manifest has two Entries for ~/x on the same OS (aaaaaaaa and bbbbbbbb)"},
+		{entry("aaaaaaaa", "~/d") + entry("bbbbbbbb", "~/d/out/x"), "the Manifest has an Entry inside another: ~/d/out/x (bbbbbbbb) is inside ~/d (aaaaaaaa)"},
 		{"this is [not toml", "the Manifest STORE/squirrel.toml does not parse: "},
 	}
 	for _, c := range cases {
@@ -114,6 +115,20 @@ removed = true
 `)
 	if m, err := Load(store); err != nil || len(m.Entries) != 3 {
 		t.Errorf("Load = %+v, %v", m, err)
+	}
+}
+
+func TestLoadAcceptsNestedTargetsThatNeverMeet(t *testing.T) {
+	for name, extra := range map[string][2]string{
+		"other OS": {`tags = ["linux"]`, `tags = ["macos"]`},
+		"removed":  {``, `removed = true`},
+	} {
+		store := t.TempDir()
+		write(t, filepath.Join(store, manifestName), "[[entry]]\nid = \"aaaaaaaa\"\ntarget = \"~/d\"\n"+extra[0]+
+			"\n[[entry]]\nid = \"bbbbbbbb\"\ntarget = \"~/d/out/x\"\n"+extra[1]+"\n")
+		if _, err := Load(store); err != nil {
+			t.Errorf("%s: Load = %v", name, err)
+		}
 	}
 }
 

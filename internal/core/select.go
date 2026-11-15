@@ -105,11 +105,19 @@ func (m *Manifest) Clash(e Entry) (string, bool) {
 		if o.ID == e.ID || o.Removed || o.Target != e.Target {
 			continue
 		}
-		for _, os := range OSTags {
-			if e.AppliesOn(os) && o.AppliesOn(os) {
-				return o.ID, true
-			}
+		if sharesOS(e, o) {
+			return o.ID, true
 		}
 	}
 	return "", false
+}
+
+// sharesOS reports whether some OS exists where both Entries apply.
+func sharesOS(a, b Entry) bool {
+	for _, os := range OSTags {
+		if a.AppliesOn(os) && b.AppliesOn(os) {
+			return true
+		}
+	}
+	return false
 }

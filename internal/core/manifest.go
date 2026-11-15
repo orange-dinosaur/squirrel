@@ -81,6 +81,14 @@ func (m *Manifest) validate() error {
 			return fmt.Errorf("the Manifest has two Entries for %s on the same OS (%s and %s)", e.Target, e.ID, other)
 		}
 	}
+	for _, in := range m.Entries {
+		for _, out := range m.Entries {
+			if in.Removed || out.Removed || !strings.HasPrefix(in.Target, out.Target+"/") || !sharesOS(in, out) {
+				continue
+			}
+			return fmt.Errorf("the Manifest has an Entry inside another: %s (%s) is inside %s (%s)", in.Target, in.ID, out.Target, out.ID)
+		}
+	}
 	return nil
 }
 
