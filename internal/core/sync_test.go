@@ -97,6 +97,26 @@ func TestPullKeepsVanishedEntry(t *testing.T) {
 	}
 }
 
+func TestPullRefusesInvalidRemoteManifest(t *testing.T) {
+	gitTest(t)
+	mac, linux := twoMachines(t)
+	before, err := git(linux.Store, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pushByHand(t, mac, "squirrel.toml", "[[entry]]\nid = \"aaaaaaaa\"\ntarget = \"~\"\n")
+	res, err := Pull(linux)
+	if err == nil || !strings.HasPrefix(err.Error(), "the Remote's Manifest is not valid, so the Store stays as it is: ") || res.Moved {
+		t.Fatalf("Pull = %+v, %v", res, err)
+	}
+	if after, _ := git(linux.Store, "rev-parse", "HEAD"); after != before {
+		t.Errorf("Store HEAD moved from %s to %s", before, after)
+	}
+	if _, err := Load(linux.Store); err != nil {
+		t.Errorf("local Manifest no longer loads: %v", err)
+	}
+}
+
 func TestPullRefusesDirty(t *testing.T) {
 	gitTest(t)
 	_, linux := twoMachines(t)

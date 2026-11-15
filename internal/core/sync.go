@@ -136,6 +136,10 @@ func keepVanished(env Env) ([]Entry, error) {
 		if _, err := toml.Decode(text, &incoming); err != nil {
 			return nil, fmt.Errorf("the Remote's Manifest does not parse: %w", err)
 		}
+		incoming.remember()
+		if err := incoming.validate(); err != nil {
+			return nil, fmt.Errorf("the Remote's Manifest is not valid, so the Store stays as it is: %w", err)
+		}
 	}
 	var kept []Entry
 	for _, e := range current.Entries {
