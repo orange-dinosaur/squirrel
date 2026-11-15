@@ -9,16 +9,17 @@ import (
 type State string
 
 const (
-	Linked             State = "linked"
-	NotLinked          State = "not linked"
-	ConflictFile       State = "conflict: real file"
-	ConflictDir        State = "conflict: directory"
-	ConflictLink       State = "conflict: other link"
-	MissingFromStore   State = "missing from Store"
-	StoreItemLink      State = "Store item is a symlink"
-	RemovedState       State = "removed"
-	RemovedStillLinked State = "removed, still linked"
-	OtherOS            State = "other OS"
+	Linked              State = "linked"
+	NotLinked           State = "not linked"
+	ConflictFile        State = "conflict: real file"
+	ConflictDir         State = "conflict: directory"
+	ConflictLink        State = "conflict: other link"
+	MissingFromStore    State = "missing from Store"
+	StoreItemLink       State = "Store item is a symlink"
+	TargetOverlapsStore State = "target overlaps the Store"
+	RemovedState        State = "removed"
+	RemovedStillLinked  State = "removed, still linked"
+	OtherOS             State = "other OS"
 )
 
 type Row struct {
@@ -66,6 +67,9 @@ func Status(env Env, m *Manifest, tags []string, all bool) ([]Row, error) {
 
 // linkState compares an applying Entry's target with its Store item.
 func linkState(env Env, e Entry) (State, error) {
+	if target := env.Expand(e.Target); inside(env.Store, target) || inside(target, env.Store) {
+		return TargetOverlapsStore, nil
+	}
 	if item, err := os.Lstat(env.StorePath(e)); errors.Is(err, fs.ErrNotExist) {
 		return MissingFromStore, nil
 	} else if err != nil {

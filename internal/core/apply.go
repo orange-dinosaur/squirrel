@@ -41,7 +41,7 @@ func PlanApply(env Env, m *Manifest, tags []string) (Plan, error) {
 			}
 		case ConflictFile, ConflictDir, ConflictLink:
 			p.Conflicts = append(p.Conflicts, r)
-		case MissingFromStore, StoreItemLink:
+		case MissingFromStore, StoreItemLink, TargetOverlapsStore:
 			p.Missing = append(p.Missing, r)
 		case RemovedStillLinked:
 			p.Unmanage = append(p.Unmanage, r.Entry)

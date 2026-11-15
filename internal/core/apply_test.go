@@ -110,6 +110,33 @@ func TestApplySkipsSymlinkedStoreItem(t *testing.T) {
 	}
 }
 
+func TestApplySkipsTargetsThatOverlapTheStore(t *testing.T) {
+	for _, c := range []struct{ store, target string }{
+		{"~/.squirrel", "~/.squirrel"},
+		{"~/.squirrel", "~/.squirrel/x"},
+		{"~/data/store", "~/data"},
+	} {
+		env := testEnv(t)
+		env.Store = env.Expand(c.store)
+		e := Entry{ID: "aaaaaaaa", Target: c.target}
+		write(t, filepath.Join(env.StorePath(e), "f"), "x")
+		if got, err := linkState(env, e); got != TargetOverlapsStore || err != nil {
+			t.Errorf("%s in Store %s: linkState = %q, %v", c.target, c.store, got, err)
+		}
+		p, err := PlanApply(env, &Manifest{Entries: []Entry{e}}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res := ExecuteApply(env, p, map[string]Resolution{e.ID: Overwrite})
+		if len(res.Linked) != 0 || len(res.Skipped) != 1 || res.Skipped[0].Reason != string(TargetOverlapsStore) {
+			t.Errorf("%s in Store %s: ExecuteApply = %+v", c.target, c.store, res)
+		}
+		if _, err := os.Stat(filepath.Join(env.StorePath(e), "f")); err != nil {
+			t.Errorf("%s in Store %s: the Store lost its file: %v", c.target, c.store, err)
+		}
+	}
+}
+
 func TestApplySaysWhatIsInTheWay(t *testing.T) {
 	env := testEnv(t)
 	nvim := Entry{ID: "aaaaaaaa", Target: "~/.config/nvim"}
