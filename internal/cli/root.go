@@ -107,14 +107,23 @@ func stdinIsTerminal() bool {
 	return term.IsTerminal(os.Stdin.Fd()) // a char-device check also passes /dev/null
 }
 
+// Set at release build time with -ldflags -X. Empty in a source build.
+var (
+	version string
+	commit  string
+)
+
 // Execute runs the squirrel command line. Errors are already printed when it returns.
 func Execute(ctx context.Context) error {
 	if err := checkOS(runtime.GOOS); err != nil {
 		printErr(os.Stderr, err)
 		return err
 	}
-	return fang.Execute(ctx, newRootCmd(), fang.WithErrorHandler(printError),
-		fang.WithColorSchemeFunc(helpColors))
+	opts := []fang.Option{fang.WithErrorHandler(printError), fang.WithColorSchemeFunc(helpColors)}
+	if version != "" {
+		opts = append(opts, fang.WithVersion(version), fang.WithCommit(commit))
+	}
+	return fang.Execute(ctx, newRootCmd(), opts...)
 }
 
 func printError(w io.Writer, _ fang.Styles, err error) {
